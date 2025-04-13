@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="p-5 mb-4 bg-light rounded-3">
+    <div class="container-fluid py-5">
+        <h1 class="display-5 fw-bold">About A Fugue In Flask</h1>
+        <p class="col-md-8 fs-4">
+            A modern Flask application template designed for Azure deployment.
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <h2>Project Overview</h2>
+        <p>
+            "A Fugue In Flask" provides a production-ready Flask application template that follows best practices for organization, configuration, and deployment. It serves as a solid foundation for building web applications that can be easily deployed to Azure.
+        </p>
+        
+        <h3>Features</h3>
+        <ul>
+            <li>Modular application structure using Flask blueprints</li>
+            <li>Environment-specific configuration management</li>
+            <li>Database integration with SQLAlchemy</li>
+            <li>Authentication system with Flask-Login</li>
+            <li>Azure deployment setup</li>
+            <li>Comprehensive documentation</li>
+        </ul>
+        
+        <h3>Architecture</h3>
+        <p>
+            The application follows the application factory pattern to create a flexible and testable Flask application. It uses blueprints to organize routes into logical modules, and SQLAlchemy for database operations.
+        </p>
+        <p>
+            For more details about the architecture, see the <a href="https://github.com/HarryJamesGreenblatt/A-Fugue-In-Flask/blob/master/docs/architecture.md">architecture documentation</a>.
+        </p>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Learn More</h5>
+            </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">
+                    <a href="https://github.com/HarryJamesGreenblatt/A-Fugue-In-Flask">GitHub Repository</a>
+                </li>
+                <li class="list-group-item">
+                    <a href="https://github.com/HarryJamesGreenblatt/A-Fugue-In-Flask/blob/master/docs/deployment.md">Deployment Guide</a>
+                </li>
+                <li class="list-group-item">
+                    <a href="https://flask.palletsprojects.com/">Flask Documentation</a>
+                </li>
+                <li class="list-group-item">
+                    <a href="https://docs.microsoft.com/en-us/azure/app-service/quickstart-python">Azure Python Quickstart</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

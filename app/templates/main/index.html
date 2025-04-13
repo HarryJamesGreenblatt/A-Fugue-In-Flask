@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="jumbotron p-5 mb-4 bg-light rounded-3">
+    <div class="container-fluid py-5">
+        <h1 class="display-5 fw-bold">Welcome to A Fugue In Flask</h1>
+        <p class="col-md-8 fs-4">
+            A comprehensive Flask application template with Azure deployment capabilities.
+        </p>
+        <p>
+            This template provides a solid foundation for building web applications using Flask.
+            It follows best practices for organization, configuration, and deployment.
+        </p>
+        {% if not current_user.is_authenticated %}
+            <p>
+                <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg">Log In</a>
+                <a href="{{ url_for('auth.register') }}" class="btn btn-outline-secondary btn-lg">Register</a>
+            </p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title">Modular Structure</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Organized with blueprints and the application factory pattern for easy maintenance and testing.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title">Authentication</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Includes a complete authentication system with user registration, login, and session management.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title">Azure Ready</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Configured for easy deployment to Azure App Service with CI/CD pipeline support.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

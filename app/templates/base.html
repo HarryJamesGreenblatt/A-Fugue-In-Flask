@@ -1,24 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    {# 
-    Base Template for A Fugue In Flask
-    
-    This template provides the main HTML structure that all other templates will extend.
-    It demonstrates several key Flask/Jinja2 template features:
-    
-    - Template inheritance: Other templates extend this base
-    - Block definitions: Customizable sections for child templates
-    - Conditional rendering: Based on Flask context variables
-    - URL generation: Using Flask's url_for function
-    - Flash message handling: For user notifications
-    - Static file references: For CSS, JS, images
-    #}
-    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    {# Title block that child templates can override #}
     <title>
         {% if title %}
             {{ title }} - A Fugue In Flask
@@ -27,17 +12,16 @@
         {% endif %}
     </title>
     
-    {# Bootstrap CSS from CDN for responsive styling #}
+    <!-- Bootstrap CSS from CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
-    {# Custom CSS from static files #}
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     
-    {# Additional CSS block for child templates to add specific styles #}
     {% block styles %}{% endblock %}
 </head>
 <body>
-    {# Navigation bar that shows different options based on authentication status #}
+    <!-- Navigation bar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('main.index') }}">A Fugue In Flask</a>
@@ -55,7 +39,6 @@
                 </ul>
                 <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
-                        {# Display these links only for logged-in users #}
                         <li class="nav-item">
                             <span class="nav-link">Welcome, {{ current_user.username }}</span>
                         </li>
@@ -63,7 +46,6 @@
                             <a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a>
                         </li>
                     {% else %}
-                        {# Display these links only for guests #}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
                         </li>
@@ -76,13 +58,12 @@
         </div>
     </nav>
 
-    {# Main content container #}
+    <!-- Main content container -->
     <div class="container">
-        {# Flash message handling with Bootstrap alerts #}
+        <!-- Flash message handling -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    {# Map Flask message categories to Bootstrap alert classes #}
                     {% set alert_class = {
                         'error': 'danger',
                         'danger': 'danger',
@@ -99,21 +80,20 @@
             {% endif %}
         {% endwith %}
         
-        {# Main content block that child templates will override #}
+        <!-- Main content block -->
         {% block content %}{% endblock %}
     </div>
 
-    {# Footer section #}
+    <!-- Footer -->
     <footer class="footer mt-5 py-3 bg-light">
         <div class="container text-center">
             <span class="text-muted">A Fugue In Flask &copy; {{ now.year if now else 2025 }}</span>
         </div>
     </footer>
 
-    {# JavaScript dependencies #}
+    <!-- JavaScript dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    {# Additional JavaScript block for child templates #}
     {% block scripts %}{% endblock %}
 </body>
 </html>
