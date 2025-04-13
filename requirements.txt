@@ -11,4 +11,4 @@ coverage==7.3.2
 azure-cli==2.53.0
 azure-identity==1.15.0
 azure-mgmt-resource==23.0.1
-azure-mgmt-web==7.0.1
+azure-mgmt-web>=6.0.0,<8.0.0

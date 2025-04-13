@@ -8,7 +8,7 @@ environment after cloning the repository.
 """
 import os
 import sys
-from flask_migrate import init, migrate, upgrade
+from flask_migrate import init, migrate, upgrade, Migrate
 from app import create_app, db
 from app.models.user import User
 
@@ -18,16 +18,21 @@ def initialize_database():
     app = create_app()
     
     with app.app_context():
+        migrate_instance = Migrate(app, db)
+        
         # Check if migrations directory exists
         if not os.path.exists("migrations"):
             print("Initializing migrations directory...")
-            init()
-        
-        print("Creating initial migration...")
-        migrate(message="Initial migration")
-        
-        print("Applying migration to the database...")
-        upgrade()
+            init(directory="migrations")
+            
+            print("Creating initial migration...")
+            migrate(directory="migrations", message="Initial migration")
+            
+            print("Applying migration to the database...")
+            upgrade(directory="migrations")
+        else:
+            print("Migrations directory already exists. Applying migrations...")
+            upgrade(directory="migrations")
         
         # Create a default admin user if it doesn't exist
         if not User.query.filter_by(username="admin").first():
