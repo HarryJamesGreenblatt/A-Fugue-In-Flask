@@ -11,10 +11,10 @@ coverage==7.3.2
 psycopg2-binary==2.9.9  # PostgreSQL adapter for Python
 pyodbc==4.0.39  # Microsoft SQL Server driver
 sqlalchemy-pytds==0.3.2  # Alternative to sqlalchemy-pyodbc-azure for SQL Server
-# Removed: sqlalchemy-pyodbc-azure==1.0.3 - Package not found
-# If you need explicit Azure SQL support, you can use:
-# pyodbc + the regular SQLAlchemy engine with proper connection string
+
+# Azure CLI and related packages
+# Use azure-mgmt-resource==23.1.0b2 to match what azure-cli requires
 azure-cli==2.53.0
+azure-mgmt-resource==23.1.0b2  # Updated to match azure-cli dependency
 azure-identity==1.15.0
-azure-mgmt-resource==23.0.1
 azure-mgmt-web>=6.0.0,<8.0.0
