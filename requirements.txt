@@ -12,10 +12,6 @@ psycopg2-binary==2.9.9  # PostgreSQL adapter for Python
 pyodbc==4.0.39  # Microsoft SQL Server driver
 sqlalchemy-pytds==0.3.2  # Alternative to sqlalchemy-pyodbc-azure for SQL Server
 
-# Removed Azure CLI packages to simplify dependencies.
-# These packages aren't needed for the deployment itself and are causing conflicts.
-# If you need Azure CLI functionality within the app, we can add specific packages later.
-
-# Other Azure packages that don't conflict
-azure-identity==1.24.0b2  # Match the version compatible with Azure CLI
-azure-mgmt-web>=6.0.0,<8.0.0
+# Removed all Azure CLI and identity packages to resolve deployment conflicts.
+# These packages aren't needed for the Flask application to run on Azure App Service.
+# GitHub Actions handles the deployment process without requiring these dependencies.
