@@ -72,18 +72,25 @@ class ProductionConfig(Config):
     
     Provides secure, performance-optimized settings for production deployment:
     - Debug mode disabled
-    - Production database URI required (no fallback)
+    - Support for multiple database types (PostgreSQL, Azure SQL, SQLite)
     - Additional security and performance optimizations
     """
     FLASK_ENV = 'production'
     DEBUG = False
     
-    # Production database URI - no default provided to enforce explicit configuration
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URI')
+    # Production database URI with fallback for different providers
+    # Format examples:
+    # PostgreSQL: postgresql://username:password@hostname:port/database
+    # Azure SQL: mssql+pyodbc://username:password@server.database.windows.net/database?driver=ODBC+Driver+17+for+SQL+Server
+    # SQLite (not recommended for production): sqlite:///prod.db
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URI', 'sqlite:///prod.db')
     
     # Additional production configs like SSL, logging, etc. can be added here
-    # SESSION_COOKIE_SECURE = True  # Uncomment for HTTPS-only cookies
-    # PREFERRED_URL_SCHEME = 'https'  # Uncomment for HTTPS URL generation
+    SESSION_COOKIE_SECURE = True  # Enforces HTTPS-only cookies
+    PREFERRED_URL_SCHEME = 'https'  # Enforces HTTPS URL generation
+    
+    # Azure-specific configurations when deployed to Azure
+    AZURE_INSIGHTS_CONNECTION_STRING = os.environ.get('APPLICATIONINSIGHTS_CONNECTION_STRING')
 
 # Map config environment names to config classes for easy selection
 config_by_name = {
