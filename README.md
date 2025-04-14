@@ -72,7 +72,7 @@ A comprehensive Flask application template with Azure deployment capabilities.
    flask run
    ```
 
-8. Access the application at http://127.0.0.1:5000
+8. Access the application at [flask-fugue-app.azurewebsites.net](https://flask-fugue-app.azurewebsites.net)
 
 ### Default Login
 
