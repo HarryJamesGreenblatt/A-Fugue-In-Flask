@@ -12,7 +12,7 @@ A comprehensive Flask application template with Azure deployment capabilities.
 - Environment-specific configuration management
 - Database integration with SQLAlchemy
 - Authentication system
-- Azure deployment setup
+- Azure deployment setup with CI/CD
 - Testing framework
 - Comprehensive documentation
 
@@ -110,10 +110,22 @@ Key environment variables (defined in `.env`):
 
 ## Documentation
 
-For detailed documentation about the architecture, implementation, and deployment, see the [docs](./docs) directory:
+### Architecture Documentation
 
-- [Architecture Documentation](./docs/architecture.md)
-- [Deployment Guide](./docs/deployment.md)
+For detailed documentation about the application architecture and implementation:
+
+- [Architecture Documentation](./docs/architecture.md) - Comprehensive overview of application structure and patterns
+- [Setup Guide](./docs/setup.md) - Detailed setup instructions for local development
+
+### Azure Deployment Documentation
+
+We provide extensive documentation for deploying to Azure:
+
+- [Azure Deployment Guide](./docs/azure_deployment.md) - Complete step-by-step instructions for deploying to Azure
+- [Azure Key Vault Integration](./docs/azure_key_vault.md) - Guide for securely managing secrets with Azure Key Vault
+- [GitHub Actions CI/CD](./docs/github_actions_azure.md) - Setting up continuous deployment with GitHub Actions
+- [Azure SQL Database Integration](./docs/azure_sql_database.md) - Connecting your Flask app to Azure SQL Database
+- [PostgreSQL Guide](./docs/postgresql_guide.md) - Alternative PostgreSQL deployment options
 
 ## Testing
 
@@ -123,9 +135,31 @@ Run tests with pytest:
 pytest
 ```
 
+For coverage reporting:
+
+```
+pytest --cov=app tests/
+```
+
 ## Deployment
 
-This template includes configuration for deploying to Azure App Service. See the [deployment guide](./docs/deployment.md) for detailed instructions.
+This template is configured for continuous deployment to Azure App Service using GitHub Actions. The deployment process includes:
+
+1. Automated testing before deployment
+2. Secure secret management with Azure Key Vault
+3. Database configuration with Azure SQL Database (Basic tier)
+4. CI/CD pipeline with GitHub Actions
+
+See the [Azure Deployment Guide](./docs/azure_deployment.md) for detailed instructions.
+
+## Azure Resources
+
+When deployed, this application uses these Azure resources:
+
+- **Azure App Service**: Hosts the Flask application (Free tier F1 for development)
+- **Azure SQL Database**: Database backend (Basic tier, ~$5/month)
+- **Azure Key Vault**: Securely stores application secrets and credentials
+- **GitHub Actions**: Provides CI/CD pipeline integration
 
 ## License
 
