@@ -52,8 +52,10 @@ Add these packages to your `requirements.txt`:
 
 ```
 pyodbc==4.0.39
-sqlalchemy-pyodbc-azure==1.0.3
+sqlalchemy-pytds==0.3.2  # Alternative for SQL Server connections
 ```
+
+> **Note**: We're using the standard `pyodbc` package with SQLAlchemy's built-in MS SQL Server dialect, rather than the unavailable `sqlalchemy-pyodbc-azure` package. The `sqlalchemy-pytds` package provides an alternative SQL Server connection method if needed.
 
 ### 2. Update Database URI in Configuration
 
