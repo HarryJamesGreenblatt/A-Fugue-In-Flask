@@ -13,31 +13,31 @@ A Fugue In Flask follows the **Application Factory Pattern** with a modular desi
 
 Here's a visual representation of the application architecture:
 
-```
-                                  ┌─────────────┐
-                                  │    app.py   │
-                                  │  (entrypoint)│
-                                  └──────┬──────┘
-                                         │
-                                         ▼
-┌───────────────────────────────────────────────────────────────────┐
-│                           create_app()                             │
-│                                                                    │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐    │
-│  │  Config     │    │  Extensions │    │     Blueprints      │    │
-│  │  Settings   │───▶│  (Flask     │───▶│  (Routes organized  │    │
-│  │             │    │   add-ons)  │    │   by functionality) │    │
-│  └─────────────┘    └─────────────┘    └─────────────────────┘    │
-│                                                                    │
-└───────────────────────────────────────────────────────────────────┘
-                      │             │              │
-          ┌───────────┘             │              └───────────┐
-          │                         │                          │
-          ▼                         ▼                          ▼
-┌────────────────────┐    ┌─────────────────────┐    ┌──────────────────┐
-│     Templates      │    │       Models        │    │      Static       │
-│  (HTML rendering)  │    │  (Database schema)  │    │  (CSS, JS, etc.)  │
-└────────────────────┘    └─────────────────────┘    └──────────────────┘
+```mermaid
+graph TD
+    A[app.py<br>Entry Point] --> B[create_app()<br>Application Factory]
+    
+    subgraph "Application Factory"
+        B --> C[Configuration<br>Settings]
+        B --> D[Extensions<br>Initialization]
+        B --> E[Blueprint<br>Registration]
+    end
+    
+    D --> F[Database<br>SQLAlchemy]
+    D --> G[Authentication<br>Flask-Login]
+    D --> H[Migrations<br>Flask-Migrate]
+    
+    E --> I[Main Blueprint<br>Home, About]
+    E --> J[Auth Blueprint<br>Login, Register, Logout]
+    
+    I --> K[Templates<br>main/]
+    J --> L[Templates<br>auth/]
+    
+    I --> M[Static Files<br>CSS, JS]
+    
+    F --> N[User Model]
+    
+    J --> O[Forms<br>Login, Register]
 ```
 
 ## Key Components
@@ -76,17 +76,34 @@ The configuration system implements a hierarchical approach:
 - Dynamic selection based on environment variables
 - Secret management via environment variables
 
-```python
-class Config:
-    # Base config with common settings
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key')
-    # ...
-
-class DevelopmentConfig(Config):
-    # Development-specific settings
-    DEBUG = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///dev.db'
-    # ...
+```mermaid
+classDiagram
+    class Config {
+        +SECRET_KEY
+        +SQLALCHEMY_TRACK_MODIFICATIONS
+        +FLASK_APP
+    }
+    
+    class DevelopmentConfig {
+        +FLASK_ENV = "development"
+        +DEBUG = True
+        +SQLALCHEMY_DATABASE_URI = "sqlite:///dev.db"
+    }
+    
+    class TestingConfig {
+        +TESTING = True
+        +SQLALCHEMY_DATABASE_URI = "sqlite:///test.db"
+    }
+    
+    class ProductionConfig {
+        +FLASK_ENV = "production"
+        +DEBUG = False
+        +SQLALCHEMY_DATABASE_URI
+    }
+    
+    Config <|-- DevelopmentConfig
+    Config <|-- TestingConfig
+    Config <|-- ProductionConfig
 ```
 
 ### 3. Blueprints (Routes)
@@ -96,11 +113,23 @@ Blueprints are logical collections of routes, templates, and static files. They 
 - `main_bp`: General pages like home and about
 - `auth_bp`: Authentication-related routes (login, register, logout)
 
-```
-app/routes/
-  ├── __init__.py
-  ├── main.py (Main blueprint: index, about)
-  └── auth.py (Auth blueprint: login, register, logout)
+```mermaid
+flowchart TD
+    A[Routes] --> B[main_bp]
+    A --> C[auth_bp]
+    
+    B --> D[index&#40;&#41;/Home Page]
+    B --> E[about&#40;&#41;/About Page]
+    
+    C --> F[login&#40;&#41;/Login Page]
+    C --> G[register&#40;&#41;/Registration Page]
+    C --> H[logout&#40;&#41;/Logout Handler]
+    
+    D --> I[main/index.html]
+    E --> J[main/about.html]
+    
+    F --> K[auth/login.html]
+    G --> L[auth/register.html]
 ```
 
 ### 4. Models
@@ -110,13 +139,27 @@ Models define the database schema using SQLAlchemy ORM:
 - `User`: User authentication and profile information
 - Integration with Flask-Login for session management
 
-```python
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), unique=True, index=True)
-    email = db.Column(db.String(120), unique=True, index=True)
-    password_hash = db.Column(db.String(128))
-    # ...
+```mermaid
+classDiagram
+    class User {
+        +id: Integer
+        +username: String
+        +email: String
+        +password_hash: String
+        +is_active: Boolean
+        +created_at: DateTime
+        +last_login: DateTime
+        +__repr__()
+    }
+    
+    class UserMixin {
+        +is_authenticated
+        +is_active
+        +is_anonymous
+        +get_id()
+    }
+    
+    UserMixin <|-- User
 ```
 
 ### 5. Forms
@@ -127,12 +170,33 @@ Forms are defined using Flask-WTF and WTForms:
 - CSRF protection
 - HTML rendering
 
-```python
-class LoginForm(FlaskForm):
-    email = StringField('Email', validators=[DataRequired(), Email()])
-    password = PasswordField('Password', validators=[DataRequired()])
-    remember_me = BooleanField('Remember Me')
-    submit = SubmitField('Log In')
+```mermaid
+classDiagram
+    class FlaskForm {
+        +validate_on_submit()
+        +hidden_tag()
+        +errors
+    }
+    
+    class LoginForm {
+        +email: StringField
+        +password: PasswordField
+        +remember_me: BooleanField
+        +submit: SubmitField
+    }
+    
+    class RegistrationForm {
+        +username: StringField
+        +email: StringField
+        +password: PasswordField
+        +password_confirm: PasswordField
+        +submit: SubmitField
+        +validate_username()
+        +validate_email()
+    }
+    
+    FlaskForm <|-- LoginForm
+    FlaskForm <|-- RegistrationForm
 ```
 
 ### 6. Templates
@@ -143,73 +207,132 @@ Templates are organized by blueprint and use Jinja2 templating engine:
 - Blueprint-specific templates that extend the base
 - Flash messages for user feedback
 
-```
-app/templates/
-  ├── base.html (Main layout with navigation and footer)
-  ├── auth/ (Authentication templates)
-  │   ├── login.html
-  │   └── register.html
-  └── main/ (Main pages templates)
-      ├── index.html
-      └── about.html
+```mermaid
+graph TD
+    A[base.html] --> B[main/index.html]
+    A --> C[main/about.html]
+    A --> D[auth/login.html]
+    A --> E[auth/register.html]
+    
+    B -- extends --> A
+    C -- extends --> A
+    D -- extends --> A
+    E -- extends --> A
 ```
 
 ### 7. Extensions
 
 Flask extensions provide additional functionality:
 
-- `Flask-SQLAlchemy`: ORM for database operations
-- `Flask-Migrate`: Database migrations with Alembic
-- `Flask-Login`: User authentication and session management
-- `Flask-WTF`: Form handling and validation
+```mermaid
+graph LR
+    A[Flask Application] --> B[Flask-SQLAlchemy<br>Database ORM]
+    A --> C[Flask-Migrate<br>Database Migrations]
+    A --> D[Flask-Login<br>User Authentication]
+    A --> E[Flask-WTF<br>Form Handling]
+```
 
 ### 8. Static Files
 
-Static files (CSS, JavaScript, images) are organized in the static directory:
-
-```
-app/static/
-  └── css/
-      └── style.css
-```
+Static files (CSS, JavaScript, images) are organized in the static directory.
 
 ## Data Flow
 
-1. The user makes a request to a URL (e.g., `/auth/login`)
-2. Flask routes the request to the appropriate blueprint function
-3. The function processes the request and may:
-   - Render a template
-   - Interact with the database through models
-   - Validate form input
-   - Redirect to another page
-4. The response is returned to the user
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant RouteHandler
+    participant Form
+    participant Model
+    participant Database
+    participant Template
+    
+    Browser->>RouteHandler: HTTP Request
+    
+    alt GET Request
+        RouteHandler->>Template: Render template
+        Template->>Browser: HTML Response
+    else POST Request
+        RouteHandler->>Form: Validate form data
+        
+        alt Valid Form Data
+            Form->>RouteHandler: Validated data
+            RouteHandler->>Model: Process data
+            Model->>Database: Persist changes
+            RouteHandler->>Browser: Redirect response
+        else Invalid Form Data
+            Form->>RouteHandler: Validation errors
+            RouteHandler->>Template: Re-render with errors
+            Template->>Browser: HTML Response with errors
+        end
+    end
+```
 
 ## Authentication Flow
 
-```
-┌──────────┐     ┌───────────┐     ┌─────────────┐     ┌──────────────┐
-│  Login   │     │ Validate  │     │  Create     │     │ Redirect to  │
-│   Form   ├────▶│   User    ├────▶│  Session    ├────▶│   Next Page  │
-│ Submitted│     │Credentials│     │(Flask-Login)│     │              │
-└──────────┘     └───────────┘     └─────────────┘     └──────────────┘
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant B as Browser
+    participant R as Route Handler
+    participant F as LoginForm
+    participant M as User Model
+    participant D as Database
+    participant S as Session
+    
+    U->>B: Submit login form
+    B->>R: POST /auth/login
+    R->>F: Validate credentials
+    
+    alt Valid Credentials
+        F->>R: Validation success
+        R->>M: Query for user
+        M->>D: Find user by email
+        D->>M: Return user object
+        M->>R: User found
+        R->>S: Create user session
+        R->>B: Redirect to next page
+        B->>U: Display protected page
+    else Invalid Credentials
+        F->>R: Validation failure
+        R->>B: Re-render login form with errors
+        B->>U: Display error messages
+    end
 ```
 
 ## Database Migrations
 
 Database schema changes are managed through migrations:
 
-1. Models are defined or modified
-2. Migration script is generated: `flask db migrate -m "Description"`
-3. Migration is applied: `flask db upgrade`
+```mermaid
+sequenceDiagram
+    participant D as Developer
+    participant M as Models
+    participant A as Alembic/Flask-Migrate
+    participant DB as Database
+    
+    D->>M: Modify model classes
+    D->>A: flask db migrate -m "Description"
+    A->>M: Detect schema changes
+    A->>A: Generate migration script
+    D->>A: flask db upgrade
+    A->>DB: Apply schema changes
+```
 
 ## Request Lifecycle
 
-1. Application setup (configs loaded, extensions initialized)
-2. Request received by Flask
-3. Routing to appropriate blueprint function
-4. Function execution (form validation, DB queries)
-5. Template rendering
-6. Response returned to user
+```mermaid
+flowchart TD
+    A[HTTP Request] --> B[WSGI Server]
+    B --> C[Flask Application]
+    C --> D[Before Request Handlers]
+    D --> E[URL Router]
+    E --> F[View Function]
+    F --> G[Template Rendering]
+    G --> H[After Request Handlers]
+    H --> I[Response]
+    I --> J[Browser]
+```
 
 ## Environment Variables
 
@@ -224,17 +347,43 @@ Environment variables control application behavior:
 
 The application supports different types of tests:
 
-- Unit tests for individual functions
-- Integration tests for route handlers
-- End-to-end tests for complete user journeys
+```mermaid
+graph TD
+    A[Tests] --> B[Unit Tests]
+    A --> C[Integration Tests]
+    A --> D[End-to-End Tests]
+    
+    B --> E[Test Models]
+    B --> F[Test Forms]
+    B --> G[Test Utils]
+    
+    C --> H[Test Routes]
+    C --> I[Test Auth]
+    
+    D --> J[Test User Flows]
+```
 
 ## Deployment Architecture
 
 For Azure deployment, the application uses:
 
-- App Service (Linux recommended) to host the Flask application
-- Database service for production data storage
-- Environment variables for configuration
+```mermaid
+flowchart TD
+    subgraph "User's Browser"
+        A[Browser Requests]
+    end
+    
+    subgraph "Azure Services"
+        B[Azure App Service]
+        C[Azure SQL Database]
+        D[Azure CDN]
+    end
+    
+    A <-->|HTTPS| B
+    A <-->|Static Assets| D
+    B <-->|SQL| C
+    B <-->|Static Files| D
+```
 
 ## Directory Structure Explained
 

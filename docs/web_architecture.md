@@ -8,32 +8,19 @@ This document explains how Flask and the "A Fugue In Flask" implementation fit i
 
 Web applications typically consist of several layers:
 
-```
-┌────────────────────────────────────────┐
-│           Client/Frontend              │
-│  (Browser, Mobile App, Desktop App)    │
-└───────────────────┬────────────────────┘
-                    │ HTTP/HTTPS
-                    ▼
-┌────────────────────────────────────────┐
-│           Web Server/Gateway           │
-│      (Nginx, Apache, IIS, Gunicorn)    │
-└───────────────────┬────────────────────┘
-                    │ WSGI/ASGI
-                    ▼
-┌────────────────────────────────────────┐
-│         Web Application Framework      │
-│     (Flask, Django, Rails, Express)    │
-└───────────────────┬────────────────────┘
-                    │
-                    ▼
-┌────────────────────────────────────────┐
-│              Database Layer            │
-│   (SQLite, PostgreSQL, MySQL, MongoDB) │
-└────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A[Client/Frontend<br>Browser, Mobile App, Desktop App] <-->|HTTP/HTTPS| B[Web Server/Gateway<br>Nginx, Apache, IIS, Gunicorn]
+    B <-->|WSGI/ASGI| C[Web Application Framework<br>Flask, Django, Rails, Express]
+    C <-->|ORM/Query| D[Database Layer<br>SQLite, PostgreSQL, MySQL, MongoDB]
+    
+    style C fill:#f8d7da,stroke:#f5c6cb
+    style B fill:#d1ecf1,stroke:#bee5eb
+    style D fill:#d4edda,stroke:#c3e6cb
+    style A fill:#fff3cd,stroke:#ffeeba
 ```
 
-Flask occupies the **Web Application Framework** layer of this stack. It handles HTTP requests, processes application logic, and generates responses.
+Flask occupies the **Web Application Framework** layer of this stack (highlighted in pink). It handles HTTP requests, processes application logic, and generates responses.
 
 ### Flask as a "Micro" Framework
 
@@ -46,6 +33,29 @@ Flask is often described as a "micro" framework, which doesn't mean it's only su
 
 This is in contrast to "batteries-included" frameworks like Django that provide more built-in functionality.
 
+```mermaid
+graph LR
+    subgraph "Flask Core"
+        A[Werkzeug<br>WSGI Utilities] 
+        B[Jinja2<br>Templating Engine]
+        C[ClickCLI<br>Command Line Interface]
+    end
+    
+    subgraph "Optional Extensions"
+        D[Flask-SQLAlchemy<br>Database ORM]
+        E[Flask-WTF<br>Form Handling]
+        F[Flask-Login<br>User Authentication]
+        G[Flask-Migrate<br>DB Migrations]
+        H[Many Others...]
+    end
+    
+    A --> D
+    A --> E
+    A --> F
+    A --> G
+    A --> H
+```
+
 ## Architectural Patterns in Our Implementation
 
 Our "A Fugue In Flask" implementation uses several architectural patterns:
@@ -54,129 +64,250 @@ Our "A Fugue In Flask" implementation uses several architectural patterns:
 
 While Flask doesn't strictly enforce MVC, our implementation follows this pattern:
 
+```mermaid
+flowchart TD
+    A[HTTP Request] --> C[Controller<br>Route Functions]
+    C --> M[Model<br>SQLAlchemy Classes]
+    M --> DB[(Database)]
+    C --> V[View<br>Jinja2 Templates]
+    V --> R[HTTP Response]
+    
+    subgraph "Flask Implementation"
+        C
+        M
+        V
+    end
+    
+    style M fill:#d4edda,stroke:#c3e6cb
+    style V fill:#cce5ff,stroke:#b8daff
+    style C fill:#f8d7da,stroke:#f5c6cb
+```
+
 - **Models**: SQLAlchemy models (`app/models/`) define data structure and database interactions
 - **Views**: Jinja2 templates (`app/templates/`) handle presentation logic
 - **Controllers**: Route functions (`app/routes/`) process requests and control application flow
 
 ### 2. Application Factory Pattern
 
-The application factory pattern allows for multiple application instances with different configurations, which is useful for:
+The application factory pattern allows for multiple application instances with different configurations:
 
-- Creating different app instances for testing vs. production
-- Managing complex dependency chains
-- Preventing circular imports
+```mermaid
+flowchart TD
+    A[app.py] --> B[create_app&#40;&#41;]
+    
+    B --> C[Development App Instance]
+    B --> D[Testing App Instance]
+    B --> E[Production App Instance]
+    
+    C --> F[Development Database]
+    D --> G[Testing Database]
+    E --> H[Production Database]
+```
 
 ### 3. Blueprint Pattern
 
 Blueprints in Flask are modular components that encapsulate related functionality:
 
-- Routes for specific feature sets
-- Associated templates and static files
-- Isolated namespaces for URL routing
+```mermaid
+graph TD
+    A[Flask Application] --> B[Main Blueprint]
+    A --> C[Auth Blueprint]
+    A --> D[API Blueprint]
+    A --> E[Admin Blueprint]
+    
+    B --> B1[Routes]
+    B --> B2[Templates]
+    B --> B3[Static Files]
+    
+    C --> C1[Routes]
+    C --> C2[Templates]
+    C --> C3[Forms]
+    
+    style B fill:#d1ecf1,stroke:#bee5eb
+    style C fill:#d4edda,stroke:#c3e6cb
+    style D fill:#f8d7da,stroke:#f5c6cb
+    style E fill:#fff3cd,stroke:#ffeeba
+```
 
 ## Where "A Fugue In Flask" Sits in Common Web Architecture Categories
 
 ### Front-end vs. Back-end
 
 Our implementation is primarily a **back-end** application that:
-- Serves HTML templates
-- Processes form submissions
-- Manages data persistence
-- Handles authentication
 
-It uses minimal client-side JavaScript, relying instead on server-rendered templates. This is considered a traditional server-side rendering approach.
+```mermaid
+flowchart LR
+    subgraph "Back-end (Our Flask App)"
+        A[Route Handlers] --> B[Business Logic]
+        B --> C[Data Layer]
+        A --> D[Template Rendering]
+    end
+    
+    subgraph "Front-end (Browser)"
+        E[HTML] --> F[CSS]
+        E --> G[Minimal JavaScript]
+    end
+    
+    D --> E
+    
+    style A fill:#f8d7da,stroke:#f5c6cb
+    style B fill:#d4edda,stroke:#c3e6cb
+    style C fill:#d1ecf1,stroke:#bee5eb
+    style D fill:#fff3cd,stroke:#ffeeba
+```
 
 ### Monolithic vs. Microservices
 
-Our application follows a **monolithic architecture**, where all components (authentication, database access, business logic) are part of a single codebase and deployment unit.
+Our application follows a **monolithic architecture**:
 
-This contrasts with microservices architecture, where different functionalities would be deployed as separate services with their own databases.
+```mermaid
+flowchart TD
+    subgraph "Monolithic Architecture (Our Approach)"
+        A[Flask Application] --> B[Auth Module]
+        A --> C[User Management]
+        A --> D[Business Logic]
+        A --> E[Database Access]
+        
+        B --> F[(Shared Database)]
+        C --> F
+        D --> F
+        E --> F
+    end
+    
+    subgraph "Microservices Architecture (Alternative)"
+        G[Auth Service] --> G1[(Auth DB)]
+        H[User Service] --> H1[(User DB)]
+        I[Business Logic Service] --> I1[(Business DB)]
+        J[API Gateway]
+        J --> G
+        J --> H
+        J --> I
+    end
+```
 
 ### Data-Driven vs. Document-Driven
 
-Our application is **data-driven**, using a relational database (SQLite for development, potentially PostgreSQL for production) with a defined schema.
+Our application is **data-driven**, using a relational database with a defined schema:
 
-### RESTful Design
-
-While not fully implementing a REST API, the application follows RESTful principles for its URL structure and HTTP method usage.
+```mermaid
+flowchart TD
+    subgraph "Data-Driven (Our Approach)"
+        A[SQLAlchemy Models] --> B[(Relational Database)]
+        C[Form Data] --> D[Data Validation]
+        D --> E[Database Operations]
+    end
+    
+    subgraph "Document-Driven (Alternative)"
+        F[Document Models] --> G[(Document Database)]
+        H[Schema-less Data] --> I[Flexible Storage]
+    end
+```
 
 ## Deployment Architecture with Azure
 
 When deployed to Azure, our application uses the following architecture:
 
-```
-┌──────────────────┐         ┌──────────────────┐
-│                  │         │                  │
-│    Client        │◄───────►│    Azure CDN     │ (Optional)
-│    Browser       │         │    (Static)      │
-│                  │         │                  │
-└────────┬─────────┘         └──────────────────┘
-         │
-         │ HTTPS
-         ▼
-┌──────────────────┐
-│                  │
-│    Azure App     │
-│    Service       │◄─┐
-│    (Linux)       │  │
-│                  │  │
-└────────┬─────────┘  │
-         │            │
-         ▼            │ Connection
-┌──────────────────┐  │ String
-│                  │  │
-│    Azure SQL     │──┘
-│    Database      │
-│                  │
-└──────────────────┘
+```mermaid
+flowchart TD
+    A[Client Browser] -->|HTTPS| B[Azure App Service]
+    A -->|CDN Requests| C[Azure CDN]
+    
+    subgraph "Azure Cloud"
+        B -->|Database Operations| D[(Azure SQL Database)]
+        B -->|Session Storage| E[Azure Cache for Redis]
+        B -->|Static Files| C
+    end
+    
+    subgraph "DevOps Pipeline"
+        F[GitHub Repository] -->|CI/CD| G[Azure DevOps]
+        G -->|Deploy| B
+    end
+    
+    style B fill:#d4edda,stroke:#c3e6cb
+    style D fill:#f8d7da,stroke:#f5c6cb
+    style C fill:#d1ecf1,stroke:#bee5eb
+    style E fill:#fff3cd,stroke:#ffeeba
 ```
 
 ## Comparison to Other Web Stacks
 
-### LAMP Stack (Linux, Apache, MySQL, PHP)
-- Traditional stack for web development
-- Flask replaces PHP as the application language
-- Similar architecture but with more modern, Pythonic approaches
+Here's a comparison of different web development stacks:
 
-### MEAN/MERN Stack (MongoDB, Express, Angular/React, Node.js)
-- JavaScript-focused stack for single-page applications
-- Our Flask implementation is more focused on server-side rendering
-- Different paradigm: full-stack JavaScript vs. Python backend
-
-### Django (Python)
-- More opinionated, "batteries-included" Python framework
-- Flask offers more flexibility but requires more manual configuration
-- Both use similar patterns (ORM, template rendering, etc.)
-
-### Ruby on Rails
-- Similar convention-over-configuration philosophy to Django
-- Flask is more explicit and less "magical" in its approach
+```mermaid
+graph TD
+    subgraph "Flask (Our Stack)"
+        A1[Python] --> B1[Flask]
+        B1 --> C1[SQLAlchemy]
+        C1 --> D1[SQLite/PostgreSQL]
+    end
+    
+    subgraph "LAMP Stack"
+        A2[PHP] --> B2[Laravel/WordPress]
+        B2 --> D2[MySQL]
+    end
+    
+    subgraph "MEAN/MERN Stack"
+        A3[JavaScript] --> B3[Express]
+        B3 --> C3[Mongoose]
+        C3 --> D3[MongoDB]
+        A3 --> E3[Angular/React]
+    end
+    
+    subgraph "Django Stack"
+        A4[Python] --> B4[Django]
+        B4 --> C4[Django ORM]
+        C4 --> D4[PostgreSQL]
+    end
+    
+    style A1 fill:#f8d7da,stroke:#f5c6cb
+    style B1 fill:#f8d7da,stroke:#f5c6cb
+    style A4 fill:#f8d7da,stroke:#f5c6cb
+```
 
 ## When to Choose Flask (and This Architecture)
 
-Flask and the architecture used in "A Fugue In Flask" are particularly well-suited for:
-
-1. **Applications of any size** from small APIs to large websites
-2. **Developers who prefer explicit control** over framework magic
-3. **Projects that may need to scale or pivot** due to Flask's flexibility
-4. **Applications with specific requirements** that might not fit well with more opinionated frameworks
-5. **Microservices** where lightweight footprint is valuable
-6. **Teams familiar with Python** who want to leverage the Python ecosystem
-
-## Limitations and Considerations
-
-1. **More boilerplate setup** compared to Django or Rails
-2. **More decisions to make** about components and architecture
-3. **Potential for inconsistent patterns** if not carefully architected
-4. **Less built-in protection** against common mistakes
+```mermaid
+mindmap
+    root((Flask Use Cases))
+        Small to Medium Apps
+            Rapid Prototyping
+            Microservices
+            Internal Tools
+        API Development
+            RESTful Services
+            Webhook Handlers
+            Serverless Functions
+        Full-Stack Applications
+            Server-rendered Apps
+            Hybrid Apps
+            Custom Admin Panels
+        Education
+            Learning Web Development
+            Understanding Core Concepts
+            Minimal Abstraction
+```
 
 ## Modern Web Development Context
 
 In modern web development, Flask often serves as:
 
-1. A backend API server for JavaScript frontends (React, Vue, Angular)
-2. A traditional server-rendered application (as implemented here)
-3. A microservice within a larger application ecosystem
-4. A lightweight API gateway
+```mermaid
+flowchart LR
+    A[Flask Application] --> B{Role in Modern Architecture}
+    B --> C[Backend API<br>for JS Frontends]
+    B --> D[Traditional Server-<br>Rendered Application]
+    B --> E[Microservice within<br>Larger Ecosystem]
+    B --> F[API Gateway]
+    
+    C --> G[React]
+    C --> H[Vue]
+    C --> I[Angular]
+    
+    E --> J[Service Mesh]
+    E --> K[Container Orchestration]
+    
+    style A fill:#f8d7da,stroke:#f5c6cb
+    style B fill:#d1ecf1,stroke:#bee5eb
+```
 
 Our implementation provides a solid foundation that can be adapted to any of these approaches as requirements evolve.
