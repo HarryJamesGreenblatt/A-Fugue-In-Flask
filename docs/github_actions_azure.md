@@ -124,7 +124,9 @@ jobs:
 
 ## Setting Up Deployment Credentials
 
-GitHub Actions needs credentials to deploy to Azure. These are provided via the publish profile:
+GitHub Actions needs credentials to deploy to Azure. There are two main approaches:
+
+### Approach 1: Using Publish Profile (Simpler)
 
 1. **Get the publish profile**:
    ```bash
@@ -132,14 +134,52 @@ GitHub Actions needs credentials to deploy to Azure. These are provided via the 
    ```
 
 2. **Add as a GitHub Secret**:
-   - Go to your GitHub repository → Settings → Secrets → Actions
-   - Click "New repository secret"
-   - Name: `AZURE_WEBAPP_PUBLISH_PROFILE`
-   - Value: *contents of the azure-publish-profile.xml file*
-
-   Alternatively, use the GitHub CLI:
+   - Using GitHub CLI:
    ```bash
    gh secret set AZURE_WEBAPP_PUBLISH_PROFILE --body "$(cat azure-publish-profile.xml)"
+   ```
+   
+   - Or through the web interface:
+   ```
+   Go to your GitHub repository → Settings → Secrets → Actions
+   Click "New repository secret"
+   Name: AZURE_WEBAPP_PUBLISH_PROFILE
+   Value: *contents of the azure-publish-profile.xml file*
+   ```
+
+### Approach 2: Using Service Principal (More secure for production)
+
+1. **Create Azure service principal**:
+   ```bash
+   az ad sp create-for-rbac --name "flask-fugue-github-actions" --role contributor \
+     --scopes /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/flaskapp-rg --sdk-auth > azure_credentials.json
+   ```
+
+2. **Add credentials to GitHub Secrets**:
+   - Using GitHub CLI:
+   ```bash
+   gh secret set AZURE_CREDENTIALS --body "$(cat azure_credentials.json)"
+   ```
+   
+   - Or through the web interface:
+   ```
+   Go to your GitHub repository → Settings → Secrets → Actions
+   Click "New repository secret"
+   Name: AZURE_CREDENTIALS
+   Value: *contents of the azure_credentials.json file*
+   ```
+
+3. **Update workflow to include Azure login**:
+   ```yaml
+   - name: Azure Login
+     uses: azure/login@v1
+     with:
+       creds: ${{ secrets.AZURE_CREDENTIALS }}
+   ```
+
+4. **Delete the local credentials file for security**:
+   ```bash
+   rm azure_credentials.json
    ```
 
 ## How the Deployment Works
@@ -225,16 +265,30 @@ Add database migration steps before deployment:
 ### Common Issues:
 
 1. **Authentication Failures**:
-   - Verify the publish profile secret is correctly set
-   - Ensure the publish profile hasn't expired (they can expire after a long time)
+   - "No credentials found" error: Add Azure login step to your workflow as described above
+   - Verify the publish profile or credentials are correctly set
+   - Ensure the service principal has sufficient permissions for the resource group
 
 2. **Dependency Installation Failures**:
    - Check if all dependencies in `requirements.txt` are installable
    - Some packages might require system-level dependencies
+   - Some packages might have platform-specific dependencies not available in GitHub Actions
+   - Consider using a custom startup script in Azure that installs dependencies at runtime:
+     ```bash
+     #!/bin/bash
+     pip install -r requirements.txt
+     # Start your application
+     ```
 
-3. **Deployment Timeout**:
-   - Large deployments might timeout; consider optimizing your package size
-   - Exclude unnecessary files using `.gitignore` or workflow configurations
+3. **Application Starts but Shows Errors**:
+   - In Azure App Service, set a custom startup script:
+     ```bash
+     az webapp config set --name flask-fugue-app --resource-group flaskapp-rg --startup-file "startup_azure.sh"
+     ```
+   - View application logs to diagnose:
+     ```bash
+     az webapp log tail --name flask-fugue-app --resource-group flaskapp-rg
+     ```
 
 ### Debugging Workflows:
 

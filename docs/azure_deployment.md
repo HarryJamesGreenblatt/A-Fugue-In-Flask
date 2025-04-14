@@ -190,7 +190,7 @@ az webapp deployment list-publishing-profiles --name flask-fugue-app --resource-
 # Using GitHub CLI
 gh secret set AZURE_WEBAPP_PUBLISH_PROFILE --body "$(cat azure-publish-profile.xml)"
 ```
-
+****
 ### 9. Code Modifications for Azure SQL Support
 
 Ensure your application is configured for Azure SQL:
@@ -198,8 +198,10 @@ Ensure your application is configured for Azure SQL:
 1. Add the required dependencies to `requirements.txt`:
 ```
 pyodbc==4.0.39
-sqlalchemy-pyodbc-azure==1.0.3
+sqlalchemy-pytds==0.3.2  # Alternative for SQL Server connections
 ```
+
+> **Note**: We use the standard `pyodbc` package with SQLAlchemy's built-in MS SQL Server dialect instead of the `sqlalchemy-pyodbc-azure` package (which may not be available in all Python environments).
 
 2. Update `startup.sh` to handle Azure SQL connections:
 ```bash
@@ -268,17 +270,81 @@ To further optimize costs:
 2. Verify the publish profile is correctly set in GitHub Secrets
 3. Ensure your application runs locally before deployment
 
-### Database Connection Issues
+### GitHub Actions Authentication Issues
 
-1. Verify the firewall rules allow Azure services
-2. Check the connection string format in app settings
-3. Ensure ODBC drivers are properly configured in `requirements.txt`
+If you encounter an error like "No credentials found. Add an Azure login action before this action" in your GitHub Actions workflow, you need to:
+
+1. Create a service principal for Azure authentication:
+   ```bash
+   az ad sp create-for-rbac --name "flask-fugue-github-actions" --role contributor --scopes /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/flaskapp-rg --sdk-auth > azure_credentials.json
+   ```
+
+2. Add the output JSON as a GitHub secret:
+   ```bash
+   # Using GitHub CLI
+   gh secret set AZURE_CREDENTIALS --body "$(cat azure_credentials.json)"
+   
+   # Or through the GitHub web interface:
+   # Settings > Secrets > Actions > New repository secret
+   # Name: AZURE_CREDENTIALS
+   # Value: [paste entire JSON output]
+   ```
+
+3. Update your GitHub Actions workflow to include an Azure login step:
+   ```yaml
+   - name: Azure Login
+     uses: azure/login@v1
+     with:
+       creds: ${{ secrets.AZURE_CREDENTIALS }}
+   ```
+
+4. Delete the local credentials file for security:
+   ```bash
+   rm azure_credentials.json
+   ```
 
 ### Application Startup Errors
 
-1. View application logs using `az webapp log tail`
-2. Check if `startup.sh` has the correct permissions and line endings
-3. Verify the Gunicorn configuration
+If your application deploys successfully but shows an "Application Error" when you try to access it, the most common issues are:
+
+1. **Missing dependencies**: Azure may not automatically install dependencies during deployment
+2. **Incorrect startup command**: Azure might not identify the correct way to start your Flask app
+3. **Database connection issues**: The connection string may be incorrect or inaccessible
+
+To fix these issues:
+
+1. Create an Azure-specific startup script (`startup_azure.sh`):
+   ```bash
+   #!/bin/bash
+   
+   # Install Python dependencies
+   pip install -r requirements.txt
+   
+   # Check database type and run migrations
+   if [[ $DATABASE_URI == postgresql://* ]]; then
+       echo "PostgreSQL database detected, running migration script..."
+       python -m scripts.migrate_postgres
+   elif [[ $DATABASE_URI == mssql+pyodbc://* ]]; then
+       echo "Azure SQL database detected, running migration script..."
+       flask db upgrade
+   else
+       echo "Running standard database migrations..."
+       flask db upgrade
+   fi
+   
+   # Start Gunicorn server
+   exec gunicorn --bind=0.0.0.0:8000 --timeout 600 "app:create_app()"
+   ```
+
+2. Configure Azure App Service to use your custom startup script:
+   ```bash
+   az webapp config set --name flask-fugue-app --resource-group flaskapp-rg --startup-file "startup_azure.sh"
+   ```
+
+3. View application logs to diagnose specific issues:
+   ```bash
+   az webapp log tail --name flask-fugue-app --resource-group flaskapp-rg
+   ```
 
 ## Additional Resources
 
