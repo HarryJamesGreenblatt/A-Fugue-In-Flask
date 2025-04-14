@@ -12,9 +12,10 @@ psycopg2-binary==2.9.9  # PostgreSQL adapter for Python
 pyodbc==4.0.39  # Microsoft SQL Server driver
 sqlalchemy-pytds==0.3.2  # Alternative to sqlalchemy-pyodbc-azure for SQL Server
 
-# Azure CLI and related packages
-# Use azure-mgmt-resource==23.1.0b2 to match what azure-cli requires
-azure-cli==2.53.0
-azure-mgmt-resource==23.1.0b2  # Updated to match azure-cli dependency
-azure-identity==1.15.0
+# Removed Azure CLI packages to simplify dependencies.
+# These packages aren't needed for the deployment itself and are causing conflicts.
+# If you need Azure CLI functionality within the app, we can add specific packages later.
+
+# Other Azure packages that don't conflict
+azure-identity==1.24.0b2  # Match the version compatible with Azure CLI
 azure-mgmt-web>=6.0.0,<8.0.0
