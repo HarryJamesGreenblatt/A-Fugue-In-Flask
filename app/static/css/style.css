@@ -8,6 +8,8 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    padding-bottom: 60px; /* Ensure there's space for the footer */
+    position: relative;
 }
 
 /* Style the footer to stay at the bottom */
@@ -16,12 +18,24 @@ body {
     padding: 20px 0;
     background-color: #f8f9fa;
     border-top: 1px solid #e7e7e7;
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 60px;
+    line-height: 20px;
+}
+
+/* Container for main content to ensure consistent heights */
+.content-container {
+    min-height: calc(100vh - 180px); /* Account for navbar and footer */
+    padding-bottom: 2rem;
 }
 
 /* Custom jumbotron styling */
 .jumbotron {
     background-color: #f8f9fa;
     border-radius: 0.3rem;
+    margin-bottom: 2rem;
 }
 
 /* Make navbar links more visible on hover */
@@ -35,6 +49,7 @@ body {
 .card {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     transition: transform 0.3s ease;
+    height: 100%; /* Make all cards the same height */
 }
 
 .card:hover {
@@ -53,6 +68,13 @@ body {
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
 }
 
+/* Flask logo styling */
+.navbar-brand img {
+    height: 30px;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .jumbotron h1 {
@@ -61,5 +83,9 @@ body {
     
     .jumbotron p {
         font-size: 1rem;
+    }
+    
+    .content-container {
+        min-height: calc(100vh - 220px);
     }
 }

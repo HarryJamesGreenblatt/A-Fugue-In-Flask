@@ -24,7 +24,10 @@
     <!-- Navigation bar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('main.index') }}">A Fugue In Flask</a>
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">
+                <img src="{{ url_for('static', filename='img/flask-logo.svg') }}" alt="Flask Logo">
+                A Fugue In Flask
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -59,7 +62,7 @@
     </nav>
 
     <!-- Main content container -->
-    <div class="container">
+    <div class="container content-container">
         <!-- Flash message handling -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -85,7 +88,7 @@
     </div>
 
     <!-- Footer -->
-    <footer class="footer mt-5 py-3 bg-light">
+    <footer class="footer">
         <div class="container text-center">
             <span class="text-muted">A Fugue In Flask &copy; {{ now.year if now else 2025 }}</span>
         </div>
