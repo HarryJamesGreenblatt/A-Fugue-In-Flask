@@ -35,7 +35,7 @@ class User(UserMixin, db.Model):
     # Authentication fields
     username = db.Column(db.String(64), unique=True, index=True, nullable=False)
     email = db.Column(db.String(120), unique=True, index=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)  # Increased from 128 to 256 to accommodate longer password hashes
     
     # User status and metadata
     is_active = db.Column(db.Boolean, default=True)
