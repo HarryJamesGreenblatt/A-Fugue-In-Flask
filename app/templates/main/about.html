@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="p-5 mb-4 bg-light rounded-3">
-    <div class="container-fluid py-5">
+    <div class="container-fluid py-3">  <!-- Reduced padding -->
         <h1 class="display-5 fw-bold">About A Fugue In Flask</h1>
         <p class="col-md-8 fs-4">
             A modern Flask application template designed for Azure deployment.
@@ -10,7 +10,7 @@
     </div>
 </div>
 
-<div class="row">
+<div class="row g-4 mb-4"> <!-- Added margin-bottom and gutters -->
     <div class="col-md-8">
         <h2>Project Overview</h2>
         <p>
@@ -37,7 +37,7 @@
     </div>
     
     <div class="col-md-4">
-        <div class="card">
+        <div class="card h-auto"> <!-- Changed to h-auto to fix height issue -->
             <div class="card-header">
                 <h5>Learn More</h5>
             </div>
