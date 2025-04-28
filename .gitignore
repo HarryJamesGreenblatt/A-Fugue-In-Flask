@@ -31,6 +31,9 @@ dist/
 
 # Database
 *.sqlite3
+*.db
+instance/
+instance/dev.db
 
 # Test coverage
 htmlcov/
