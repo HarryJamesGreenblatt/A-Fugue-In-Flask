@@ -115,6 +115,8 @@ Key environment variables (defined in `.env`):
 For detailed documentation about the application architecture and implementation:
 
 - [Architecture Documentation](./docs/architecture.md) - Comprehensive overview of application structure and patterns
+- [Web Architecture](./docs/web_architecture.md) - Details about the web application architecture
+- [Authentication](./docs/authentication.md) - Authentication system implementation details
 - [Setup Guide](./docs/setup.md) - Detailed setup instructions for local development
 
 ### Azure Deployment Documentation
