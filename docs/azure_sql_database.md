@@ -16,33 +16,31 @@ For our Azure deployment, we chose Azure SQL Database over PostgreSQL for severa
 ### 1. Create an Azure SQL Server and Database
 
 ```bash
-# Create SQL Server
-az sql server create --name flask-template-sqlserver --resource-group flaskapp-rg \
-  --location westus --admin-user sqladmin --admin-password "YourStrongPassword123!"
+# Create SQL Server with a reusable generic name
+az sql server create --name <server-name> --resource-group <resource-group> \
+  --location <location> --admin-user <username> --admin-password "<password>"
 
-# Create SQL Database (Basic tier)
-az sql db create --resource-group flaskapp-rg --server flask-template-sqlserver \
-  --name flask-template-db --service-objective Basic
+# Create SQL Database (Basic tier) with application-specific name
+az sql db create --resource-group <resource-group> --server <server-name> \
+  --name <database-name> --service-objective Basic
 
 # Configure firewall to allow Azure services
-az sql server firewall-rule create --resource-group flaskapp-rg \
-  --server flask-template-sqlserver --name "AllowAllAzureServices" \
+az sql server firewall-rule create --resource-group <resource-group> \
+  --server <server-name> --name "AllowAllAzureServices" \
   --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
 ```
+
+> **Note**: We use a generic SQL Server name that can be reused for multiple projects, while giving each application its own database with a specific name. This approach helps manage costs by consolidating Azure resources.
 
 ### 2. Connection String Format
 
 The connection string format for Azure SQL Database in SQLAlchemy is:
 
 ```
-mssql+pyodbc://username:password@server.database.windows.net/database?driver=ODBC+Driver+17+for+SQL+Server
+mssql+pyodbc://<username>:<password>@<server>.database.windows.net/<database>?driver=ODBC+Driver+17+for+SQL+Server
 ```
 
-For example:
-
-```
-mssql+pyodbc://sqladmin:YourStrongPassword123!@flask-template-sqlserver.database.windows.net/flask-template-db?driver=ODBC+Driver+17+for+SQL+Server
-```
+> **IMPORTANT**: Never store actual connection strings or credentials in documentation, source control, or any other public location. Always use environment variables, Azure Key Vault, or other secure methods for managing secrets.
 
 ## Flask Application Configuration
 
@@ -63,8 +61,8 @@ In your `config.py` file, set the production database URI:
 
 ```python
 SQLALCHEMY_DATABASE_URI = os.environ.get(
-    'DATABASE_URI', 
-    'mssql+pyodbc://username:password@server.database.windows.net/database?driver=ODBC+Driver+17+for+SQL+Server'
+    'TEMPLATE_DATABASE_URI', 
+    os.environ.get('DATABASE_URI', 'sqlite:///prod.db')
 )
 ```
 
@@ -73,8 +71,8 @@ SQLALCHEMY_DATABASE_URI = os.environ.get(
 Set up the connection string as an environment variable in your Azure Web App:
 
 ```bash
-az webapp config appsettings set --name flask-fugue-app --resource-group flaskapp-rg \
-  --settings DATABASE_URI="mssql+pyodbc://sqladmin:YourStrongPassword123!@flask-template-sqlserver.database.windows.net/flask-template-db?driver=ODBC+Driver+17+for+SQL+Server"
+az webapp config appsettings set --name <app-name> --resource-group <resource-group> \
+  --settings DATABASE_URI="<connection-string>"
 ```
 
 ## Working with Migrations
@@ -91,16 +89,19 @@ SQL Server has some syntax differences from SQLite or PostgreSQL. Your migration
 
 ### 2. Handle Migrations During Deployment
 
-Update your `startup.sh` script to detect the database type and apply migrations accordingly:
+Update your `startup_azure.sh` script to detect the database type and apply migrations accordingly:
 
 ```bash
 #!/bin/bash
 
+# Check database type - use TEMPLATE_DATABASE_URI if available, otherwise fall back to DATABASE_URI
+DB_URI=${TEMPLATE_DATABASE_URI:-$DATABASE_URI}
+
 # Check database type
-if [[ $DATABASE_URI == postgresql://* ]]; then
+if [[ $DB_URI == postgresql://* ]]; then
     echo "PostgreSQL database detected, running migration script..."
     python -m scripts.migrate_postgres
-elif [[ $DATABASE_URI == mssql+pyodbc://* ]]; then
+elif [[ $DB_URI == mssql+pyodbc://* ]]; then
     echo "Azure SQL database detected, running migration script..."
     flask db upgrade
 else
@@ -110,18 +111,63 @@ else
 fi
 
 # Start Gunicorn server
-exec gunicorn --config gunicorn.conf.py "app:create_app()"
+exec gunicorn --bind=0.0.0.0:8000 --timeout 600 "app:create_app()"
+```
+
+### 3. Password Hash Column Size Considerations
+
+When using modern password hashing algorithms (like scrypt, bcrypt, or Argon2), ensure your database columns are large enough to store the generated hashes:
+
+```python
+# Model definition example with sufficient column size for modern hash algorithms
+class User(UserMixin, db.Model):
+    # ...existing code...
+    password_hash = db.Column(db.String(256), nullable=False)  # 256 characters for modern hash algorithms
+    # ...existing code...
+```
+
+Common issues and solutions:
+
+- **Error**: "String or binary data would be truncated in table" when storing password hashes
+- **Solution**: Increase the column length (we use 256 characters as a safe value)
+- **Migration**: Create a specific migration to alter the column size:
+
+```python
+# Migration example to increase column size
+"""Increase password_hash column length
+
+Revision ID: 7f23e04989ee
+Revises: 9f4a4f0691fe
+Create Date: 2025-04-28 12:34:56
+
+"""
+from alembic import op
+import sqlalchemy as sa
+
+# revision identifiers
+revision = '7f23e04989ee'
+down_revision = '9f4a4f0691fe'
+branch_labels = None
+depends_on = None
+
+def upgrade():
+    op.alter_column('users', 'password_hash',
+                    existing_type=sa.String(128),
+                    type_=sa.String(256),
+                    existing_nullable=False)
+
+def downgrade():
+    op.alter_column('users', 'password_hash',
+                    existing_type=sa.String(256),
+                    type_=sa.String(128),
+                    existing_nullable=False)
 ```
 
 ## Database Operations Best Practices
 
 ### 1. Use Pooling for Connections
 
-SQL Server connections benefit from connection pooling. Make sure your database URI includes pooling parameters:
-
-```
-mssql+pyodbc://username:password@server.database.windows.net/database?driver=ODBC+Driver+17+for+SQL+Server&pool_size=30&max_overflow=10
-```
+SQL Server connections benefit from connection pooling. Consider adding pooling parameters to your connection string (pool_size, max_overflow).
 
 ### 2. Handle Timeouts Appropriately
 
@@ -167,23 +213,13 @@ Never hard-code connection strings:
 
 ### 3. Enable Advanced Security Features
 
-For production environments:
-
-```bash
-# Enable Advanced Data Security
-az sql db update --resource-group flaskapp-rg --server flask-template-sqlserver \
-  --name flask-template-db --set "advancedThreatProtectionSettings.state=Enabled"
-```
+For production environments, consider enabling Advanced Data Security and threat protection.
 
 ## Monitoring and Performance
 
 ### 1. Enable Query Insights
 
-```bash
-# Enable Query Performance Insight
-az sql db update --resource-group flaskapp-rg --server flask-template-sqlserver \
-  --name flask-template-db --set "queryStoreOptions.queryStoreEnabled=true"
-```
+Enable Query Performance Insight to monitor and optimize query performance.
 
 ### 2. Add Index Recommendations
 
@@ -212,8 +248,7 @@ The Basic tier (~$5/month) is suitable for development and light production work
    - Make sure you have the correct ODBC driver installed
 
 3. **Timeout Errors**
-   - Increase connection timeout in your connection string:
-     `...&connection_timeout=30`
+   - Increase connection timeout in your connection string
 
 ### Migration Issues
 
