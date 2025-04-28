@@ -79,11 +79,9 @@ class ProductionConfig(Config):
     DEBUG = False
     
     # Production database URI with fallback for different providers
-    # Format examples:
-    # PostgreSQL: postgresql://username:password@hostname:port/database
-    # Azure SQL: mssql+pyodbc://username:password@server.database.windows.net/database?driver=ODBC+Driver+17+for+SQL+Server
-    # SQLite (not recommended for production): sqlite:///prod.db
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URI', 'sqlite:///prod.db')
+    # This URI should be set as an environment variable with a descriptive name
+    # that doesn't tie it to any specific template project, allowing reuse across templates
+    SQLALCHEMY_DATABASE_URI = os.environ.get('TEMPLATE_DATABASE_URI', os.environ.get('DATABASE_URI', 'sqlite:///prod.db'))
     
     # Additional production configs like SSL, logging, etc. can be added here
     SESSION_COOKIE_SECURE = True  # Enforces HTTPS-only cookies
