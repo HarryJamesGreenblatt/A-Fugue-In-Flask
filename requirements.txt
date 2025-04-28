@@ -11,7 +11,6 @@ coverage==7.3.2
 psycopg2-binary==2.9.9  # PostgreSQL adapter for Python
 pyodbc==4.0.39  # Microsoft SQL Server driver
 sqlalchemy-pytds==0.3.2  # Alternative to sqlalchemy-pyodbc-azure for SQL Server
-email_validator==2.1.0  # Required for WTForms email validation
 
 # Removed all Azure CLI and identity packages to resolve deployment conflicts.
 # These packages aren't needed for the Flask application to run on Azure App Service.
