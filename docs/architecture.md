@@ -14,30 +14,27 @@ A Fugue In Flask follows the **Application Factory Pattern** with a modular desi
 Here's a visual representation of the application architecture:
 
 ```mermaid
-graph TD
-    A[app.py<br>Entry Point] --> B[create_app()<br>Application Factory]
+flowchart TD
+    A["app.py - Entry Point"] --> B["create_app - Application Factory"]
+    B --> C["Configuration Settings"]
+    B --> D["Extensions Initialization"]
+    B --> E["Blueprint Registration"]
     
-    subgraph "Application Factory"
-        B --> C[Configuration<br>Settings]
-        B --> D[Extensions<br>Initialization]
-        B --> E[Blueprint<br>Registration]
-    end
+    D --> F["Database - SQLAlchemy"]
+    D --> G["Authentication - Flask-Login"]
+    D --> H["Migrations - Flask-Migrate"]
     
-    D --> F[Database<br>SQLAlchemy]
-    D --> G[Authentication<br>Flask-Login]
-    D --> H[Migrations<br>Flask-Migrate]
+    E --> I["Main Blueprint - Home, About"]
+    E --> J["Auth Blueprint - Login, Register, Logout"]
     
-    E --> I[Main Blueprint<br>Home, About]
-    E --> J[Auth Blueprint<br>Login, Register, Logout]
+    I --> K["Templates - main/"]
+    J --> L["Templates - auth/"]
     
-    I --> K[Templates<br>main/]
-    J --> L[Templates<br>auth/]
+    I --> M["Static Files - CSS, JS"]
     
-    I --> M[Static Files<br>CSS, JS]
+    F --> N["User Model"]
     
-    F --> N[User Model]
-    
-    J --> O[Forms<br>Login, Register]
+    J --> O["Forms - Login, Register"]
 ```
 
 ## Key Components
