@@ -16,7 +16,6 @@ The configuration system is designed to follow the 12-Factor App methodology's p
 particularly for configuration management, which recommends storing config in the environment.
 """
 import os
-from dotenv import load_dotenv
 import logging
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
@@ -24,10 +23,6 @@ from azure.keyvault.secrets import SecretClient
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-# Load environment variables from .env file
-# This allows developers to set environment-specific variables without modifying code
-load_dotenv()
 
 class Config:
     """
@@ -37,8 +32,7 @@ class Config:
     allowing for a DRY (Don't Repeat Yourself) approach to configuration.
     """
     # Secret key used for cryptographic functions (session, CSRF protection, etc.)
-    # In production, this should be set via environment variable
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key-please-change-in-production')
+    SECRET_KEY = None
     
     # SQLAlchemy setting to disable modification tracking for better performance
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -50,10 +44,10 @@ class Config:
     USE_CENTRALIZED_DB = os.environ.get('USE_CENTRALIZED_DB', 'False').lower() in ('true', 'yes', '1')
     
     # Database server name (for Azure SQL)
-    DB_SERVER = os.environ.get('DB_SERVER')
+    DB_SERVER = None
     
     # Database name (for Azure SQL)
-    DB_NAME = os.environ.get('DB_NAME')
+    DB_NAME = None
     
     # Database retry attempts for connection issues
     DB_CONNECTION_RETRIES = int(os.environ.get('DB_CONNECTION_RETRIES', '5'))

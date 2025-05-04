@@ -71,30 +71,26 @@ A comprehensive Flask application template with Azure SQL Database integration a
    pip install -r requirements.txt
    ```
 
-6. Set up environment variables by creating a `.env` file (or copy from `.env.template`)
-   ```
-   # Windows
-   copy .env.template .env
-   
-   # macOS/Linux
-   cp .env.template .env
-   ```
-   
-   Edit the `.env` file with your Azure SQL Database credentials:
-   ```
-   # Database connection information
-   DB_SERVER="your-sql-server.database.windows.net"
-   DB_NAME="your-database-name"
-   DB_USERNAME="your-username"
-   DB_PASSWORD="your-password"
-   
-   # Flask configuration
-   FLASK_CONFIG="development"  # Options: development, production, testing, azure
-   SECRET_KEY="your-secret-key-for-flask"
-   
-   # Set to True to use centralized database architecture
-   USE_CENTRALIZED_DB="True"
-   ```
+6. Set up Azure Key Vault and Managed Identity
+   - Create a Key Vault
+     ```bash
+     az keyvault create --name flask-fugue-kv --resource-group flaskapp-rg --location westus
+     ```
+
+   - Add secrets to Key Vault
+     ```bash
+     SECRET_KEY=$(openssl rand -hex 32)
+     az keyvault secret set --vault-name flask-fugue-kv --name "FLASK-SECRET-KEY" --value "$SECRET_KEY"
+     az keyvault secret set --vault-name flask-fugue-kv --name "DB-USERNAME" --value "sqladmin"
+     az keyvault secret set --vault-name flask-fugue-kv --name "DB-PASSWORD" --value "YourStrongPassword123!"
+     ```
+
+   - Enable Managed Identity for your Web App
+     ```bash
+     az webapp identity assign --name flask-fugue-app --resource-group flaskapp-rg
+     PRINCIPAL_ID=$(az webapp identity show --name flask-fugue-app --resource-group flaskapp-rg --query principalId -o tsv)
+     az keyvault set-policy --name flask-fugue-kv --object-id $PRINCIPAL_ID --secret-permissions get list
+     ```
 
 7. Initialize the database
    - For Azure SQL Database:
@@ -160,7 +156,7 @@ scripts/                # Utility scripts
 
 ### Environment Variables
 
-Key environment variables (defined in `.env`):
+Key environment variables (defined in Azure Key Vault):
 - `FLASK_APP`: Main application module (default: app.py)
 - `FLASK_CONFIG`: Configuration environment (development, production, testing, azure)
 - `SECRET_KEY`: Secret key for session security
@@ -231,7 +227,7 @@ If you encounter issues with Azure SQL connectivity:
 1. Run the diagnostic script: `python -m scripts.azure_sql_fix`
 2. Check if your IP is in the Azure SQL firewall allowlist
 3. Verify the ODBC driver is installed: `python -c "import pyodbc; print(pyodbc.drivers())"`
-4. Check environment variables in your `.env` file
+4. Check environment variables in your Azure Key Vault
 5. For schema issues: `python -m scripts.update_schema`
 
 ## License
