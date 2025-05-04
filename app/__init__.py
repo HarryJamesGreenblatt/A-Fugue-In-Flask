@@ -16,11 +16,11 @@ This module also initializes Flask extensions and registers blueprints.
 import os
 import logging
 import urllib.parse
-from flask import Flask, current_app
+from flask import Flask, current_app, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy import text  # Import text construct
 import time
 
@@ -36,26 +36,57 @@ login_manager = LoginManager()  # User authentication and session management
 
 def mask_connection_string(conn_string):
     """Mask sensitive information in connection strings for secure logging"""
-    if not conn_string or '@' not in conn_string:
-        return conn_string
+    if not conn_string:
+        return "No connection string provided"
     
-    parts = conn_string.split('@')
-    if len(parts) < 2:
-        return conn_string
+    try:
+        # Handle mssql+pyodbc format
+        if conn_string.startswith('mssql+pyodbc'):
+            # Split by standard delimiters
+            parts = conn_string.split('@')
+            if len(parts) >= 2:
+                # Get the first part with credentials
+                cred_part = parts[0]
+                # Find the username:password section
+                if ':' in cred_part:
+                    username_part = cred_part.split(':')[0]
+                    # Reconstruct with masked password
+                    return f"{username_part}:******@{parts[1]}"
+        
+        # Handle standard connection strings with username/password
+        if '@' in conn_string:
+            parts = conn_string.split('@')
+            if len(parts) < 2:
+                return "Masked connection string (invalid format)"
+            
+            auth_parts = parts[0].split(':')
+            if len(auth_parts) >= 2:  # username:password
+                return f"{auth_parts[0]}:******@{parts[1]}"
+        
+        # ODBC connection strings or other formats
+        if 'password=' in conn_string.lower() or 'pwd=' in conn_string.lower():
+            # Replace password/pwd parameter
+            masked = conn_string
+            import re
+            masked = re.sub(r'(?i)(password|pwd)=([^;]+)', r'\1=******', masked)
+            return masked
+            
+        return "Masked connection string (unknown format)"
     
-    auth_parts = parts[0].split(':')
-    if len(auth_parts) >= 3:  # username:password:
-        masked = f"{auth_parts[0]}:******@{parts[1]}"
-    elif len(auth_parts) == 2:  # username:password
-        masked = f"{auth_parts[0]}:******@{parts[1]}"
-    else:
-        masked = conn_string
-    
-    return masked
+    except Exception as e:
+        logger.warning(f"Error masking connection string: {str(e)}")
+        return "Masked connection string (error)"
 
 # Add connection retry decorator based on Azure best practices for transient fault handling
-def retry_connection(max_retries=3, delay=1):
-    """Decorator that implements retry logic with exponential backoff for database operations"""
+def retry_connection(max_retries=5, initial_delay=2, max_delay=60):
+    """
+    Decorator that implements retry logic with exponential backoff for database operations
+    
+    Args:
+        max_retries (int): Maximum number of retry attempts
+        initial_delay (int): Initial delay in seconds before first retry
+        max_delay (int): Maximum delay between retries in seconds
+    """
     def decorator(func):
         def wrapper(*args, **kwargs):
             retries = 0
@@ -64,10 +95,13 @@ def retry_connection(max_retries=3, delay=1):
             while retries < max_retries:
                 try:
                     return func(*args, **kwargs)
-                except OperationalError as e:
+                except (OperationalError, SQLAlchemyError) as e:
                     last_exception = e
-                    wait_time = delay * (2 ** retries)  # Exponential backoff
-                    logger.warning(f"Database connection attempt {retries+1} failed. Retrying in {wait_time}s. Error: {str(e)}")
+                    # Calculate backoff with jitter (avoid simultaneous reconnection storms)
+                    wait_time = min(initial_delay * (2 ** retries) + (time.time() % 1), max_delay)
+                    error_msg = str(e).replace('\n', ' ')
+                    logger.warning(f"Database connection attempt {retries+1}/{max_retries} failed. "
+                                  f"Retrying in {wait_time:.1f}s. Error: {error_msg}")
                     time.sleep(wait_time)
                     retries += 1
             
@@ -79,7 +113,7 @@ def retry_connection(max_retries=3, delay=1):
     return decorator
 
 # Update: Function to test database connection - extracted from decorator for Flask 2.3+ compatibility
-@retry_connection(max_retries=5, delay=2)
+@retry_connection(max_retries=5, initial_delay=2, max_delay=60)
 def test_database_connection(app):
     """Test the database connection - compatible with Flask 2.3+ when called from within a request context"""
     try:
@@ -92,10 +126,15 @@ def test_database_connection(app):
                 result = connection.execute(text("SELECT 1 AS test")) 
                 for row in result:
                     logger.info(f"Database connection test successful: {row.test}")
+                    return True
     except Exception as e:
         logger.error(f"Database connection test failed: {str(e)}")
         logger.error(f"Connection string (masked): {mask_connection_string(app.config.get('SQLALCHEMY_DATABASE_URI', ''))}")
+        logger.error(f"Database server: {app.config.get('DB_SERVER', 'Not configured')}")
+        logger.error(f"Database name: {app.config.get('DB_NAME', 'Not configured')}")
         raise
+    
+    return False
 
 def create_app(config_object='config.active_config'):
     """
@@ -119,6 +158,23 @@ def create_app(config_object='config.active_config'):
     # Create the Flask application instance
     app = Flask(__name__)
     
+    # Special handling for Azure App Service and appsettings.json
+    # This needs to be done before loading the config object
+    try:
+        # Try to load TEMPLATE_DATABASE_URI from appsettings.json if it exists
+        # This is critical for Azure App Service deployments
+        appsettings_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'appsettings.json')
+        if os.path.exists(appsettings_path):
+            import json
+            with open(appsettings_path, 'r') as f:
+                appsettings = json.load(f)
+                
+            if 'TEMPLATE_DATABASE_URI' in appsettings:
+                os.environ['TEMPLATE_DATABASE_URI'] = appsettings['TEMPLATE_DATABASE_URI']
+                logger.info("Loaded TEMPLATE_DATABASE_URI from appsettings.json")
+    except Exception as e:
+        logger.warning(f"Error loading appsettings.json: {e}")
+    
     # Load configuration from the specified object or module
     app.config.from_object(config_object)
     
@@ -128,50 +184,100 @@ def create_app(config_object='config.active_config'):
         
         # Check for template override in app settings (Azure App Service)
         if os.environ.get('TEMPLATE_DATABASE_URI'):
-            logger.info("Using TEMPLATE_DATABASE_URI from app settings")
+            logger.info("Using TEMPLATE_DATABASE_URI from environment")
             template_uri = os.environ.get('TEMPLATE_DATABASE_URI')
             
+            # Azure best practice: Ensure all necessary connection parameters are set
             # Fix for connection string params that might be missing
-            if 'Encrypt=' not in template_uri and '&Encrypt=' not in template_uri:
-                if '?' in template_uri:
-                    template_uri += '&Encrypt=yes'
-                else:
-                    template_uri += '?Encrypt=yes'
+            if 'mssql+pyodbc' in template_uri:
+                # Add required parameters for SQL Server connections
+                params_to_add = {}
+                
+                # Check and add Encrypt parameter if missing
+                if 'Encrypt=' not in template_uri and '&Encrypt=' not in template_uri:
+                    params_to_add['Encrypt'] = 'yes'
                     
-            if 'TrustServerCertificate=' not in template_uri and '&TrustServerCertificate=' not in template_uri:
-                template_uri += '&TrustServerCertificate=no'
+                if 'TrustServerCertificate=' not in template_uri and '&TrustServerCertificate=' not in template_uri:
+                    params_to_add['TrustServerCertificate'] = 'no'
+                    
+                # Increase default timeouts for better reliability
+                if 'Connection+Timeout=' not in template_uri and '&Connection+Timeout=' not in template_uri:
+                    params_to_add['Connection Timeout'] = '90'
                 
-            if 'Connection+Timeout=' not in template_uri and '&Connection+Timeout=' not in template_uri:
-                template_uri += '&Connection+Timeout=60'
+                if 'Command+Timeout=' not in template_uri and '&Command+Timeout=' not in template_uri:
+                    params_to_add['Command Timeout'] = '30'
                 
+                # Add parameters to URI
+                if params_to_add:
+                    # Check if we already have parameters
+                    if '?' in template_uri:
+                        separator = '&'
+                    else:
+                        separator = '?'
+                        
+                    # Add each parameter
+                    for param, value in params_to_add.items():
+                        template_uri += f"{separator}{param}={value}"
+                        separator = '&'  # After first param, always use &
+                
+                logger.info(f"Enhanced connection string with Azure SQL best practices parameters")
+            
             app.config['SQLALCHEMY_DATABASE_URI'] = template_uri
+            logger.info(f"Set SQLALCHEMY_DATABASE_URI from TEMPLATE_DATABASE_URI")
             
             # Azure best practice: Add SQLAlchemy engine configuration for reliable database connections
             app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
                 'pool_pre_ping': True,         # Verify connections before using them
-                'pool_recycle': 1800,          # Recycle connections after 30 minutes
-                'pool_size': 5,                # Default connection pool size
-                'max_overflow': 10,            # Allow up to 10 extra connections
+                'pool_recycle': 1800,          # Recycle connections after 30 minutes (prevent stale)
+                'pool_size': 10,               # Increased connection pool size (default is 5)
+                'max_overflow': 20,            # Allow more extra connections (default is 10)
+                'pool_timeout': 30,            # Timeout waiting for connection from pool
                 'connect_args': {
-                    'connect_timeout': 60,     # 60 second connection timeout
-                    'retry_timeout': 20,       # Retry for up to 20 seconds
-                    'retry_interval': 1        # Retry every 1 second
+                    'connect_timeout': 90,     # 90 second connection timeout (up from 60)
+                    'retry_timeout': 30,       # Retry for up to 30 seconds (up from 20)
+                    'retry_interval': 1,       # Retry every 1 second
+                    'ApplicationIntent': 'ReadWrite'  # Ensure connecting to primary replica
                 }
             }
-            
+        
         # Log database connection info (without credentials)
         db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
         masked_uri = mask_connection_string(db_uri)
         logger.info(f"Database URI: {masked_uri}")
         
-        logger.info(f"DB_SERVER: {app.config.get('DB_SERVER')}")
-        logger.info(f"DB_NAME: {app.config.get('DB_NAME')}")
+        logger.info(f"DB_SERVER: {app.config.get('DB_SERVER', 'Not configured')}")
+        logger.info(f"DB_NAME: {app.config.get('DB_NAME', 'Not configured')}")
         logger.info(f"USE_CENTRALIZED_DB: {app.config.get('USE_CENTRALIZED_DB')}")
+    
+    # Silence SQLAlchemy logs in production
+    if not app.debug:
+        import logging
+        logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
 
     # Initialize extensions with the application instance
     # This binds previously initialized extensions to this specific app
     db.init_app(app)  # Connect SQLAlchemy to this application
     migrate.init_app(app, db)  # Connect Alembic migrations to this application and database
+    
+    # Add a health check endpoint for Azure
+    @app.route('/health')
+    def health_check():
+        """Health check endpoint for Azure monitoring"""
+        try:
+            # Try a quick database connection test
+            with app.app_context():
+                db.session.execute(text('SELECT 1'))
+                db.session.commit()
+            return jsonify({"status": "healthy", "database": "connected"}), 200
+        except Exception as e:
+            logger.error(f"Health check failed: {str(e)}")
+            return jsonify({"status": "unhealthy", "error": str(e)}), 500
+    
+    # Handle Azure's special health probe endpoint
+    @app.route('/robots933456.txt')
+    def azure_health_probe():
+        """Special endpoint for Azure's platform health probes"""
+        return "I'm healthy", 200
     
     # Update: Replaced before_first_request with a middleware pattern that's compatible with Flask 2.3+
     # Database connection testing using a middleware pattern

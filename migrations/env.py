@@ -25,6 +25,40 @@ def get_engine():
 
 
 def get_engine_url():
+    """
+    Determine the database URL for migrations with proper priority:
+    1. If centralized DB is enabled, use DATABASE_URI or construct a connection string
+    2. Otherwise, fall back to Flask app's configured engine URL
+    """
+    # First check for centralized database configuration - this takes highest priority
+    if os.environ.get('USE_CENTRALIZED_DB', 'False').lower() in ('true', 'yes', '1'):
+        logger.info("Centralized database configuration detected")
+        
+        # Check for direct connection string in environment
+        if os.environ.get('DATABASE_URI'):
+            logger.info("Using DATABASE_URI from environment")
+            return os.environ.get('DATABASE_URI').replace('%', '%%')
+        
+        # Check for template connection string in environment
+        elif os.environ.get('TEMPLATE_DATABASE_URI'):
+            logger.info("Using TEMPLATE_DATABASE_URI from environment")
+            return os.environ.get('TEMPLATE_DATABASE_URI').replace('%', '%%')
+        
+        # Check for individual connection components
+        elif all([os.environ.get(var) for var in ['DB_SERVER', 'DB_NAME', 'DB_USERNAME', 'DB_PASSWORD']]):
+            logger.info("Constructing connection string from components")
+            db_server = os.environ.get('DB_SERVER')
+            db_name = os.environ.get('DB_NAME')
+            db_username = os.environ.get('DB_USERNAME')
+            db_password = os.environ.get('DB_PASSWORD')
+            
+            # Construct a proper connection string
+            conn_str = f"mssql+pyodbc://{db_username}:{db_password}@{db_server}/{db_name}?driver=ODBC+Driver+17+for+SQL+Server&TrustServerCertificate=yes&Encrypt=yes"
+            logger.info(f"Using constructed connection string for server: {db_server}, database: {db_name}")
+            return conn_str.replace('%', '%%')
+    
+    # If we reach here, either centralized DB is not enabled or we couldn't construct a valid connection string
+    # Fall back to the standard approach
     try:
         # Following Azure best practices for secure credential handling
         # Don't include passwords in logs or rendered URLs
@@ -36,23 +70,13 @@ def get_engine_url():
         # For older SQLAlchemy versions
         else:
             return str(url).replace('%', '%%')
-    except AttributeError as e:
-        logger.warning(f"Error getting engine URL: {e}")
-        # Centralized database handling - fallback if engine URL retrieval fails
-        if os.environ.get('USE_CENTRALIZED_DB') == 'True':
-            db_server = os.environ.get('DB_SERVER', 'sequitur-sql-server.database.windows.net')
-            db_name = os.environ.get('DB_NAME', 'fugue-flask-db')
-            # Use managed identity or centralized connection string if available
-            if 'TEMPLATE_DATABASE_URI' in os.environ:
-                logger.info("Using TEMPLATE_DATABASE_URI for migrations")
-                return os.environ.get('TEMPLATE_DATABASE_URI').replace('%', '%%')
-            else:
-                logger.info("Using centralized DB configuration for migrations")
-                # We can't construct a full connection string here without credentials,
-                # Alembic will get them from the Flask app's config
-                return f"mssql+pyodbc://@{db_server}/{db_name}".replace('%', '%%')
-        # Default fallback
-        return str(get_engine().url).replace('%', '%%')
+    except Exception as e:
+        logger.warning(f"Error getting engine URL: {str(e)}")
+        # Last resort fallback - should rarely get here
+        if current_app and current_app.config.get('SQLALCHEMY_DATABASE_URI'):
+            return current_app.config.get('SQLALCHEMY_DATABASE_URI').replace('%', '%%')
+        else:
+            raise ValueError("Could not determine database URL for migrations")
 
 
 # add your model's MetaData object here
