@@ -46,8 +46,6 @@ az keyvault secret set --vault-name flask-fugue-kv --name "DB-PASSWORD" --value 
 
 ## Accessing Key Vault from Flask
 
-There are two primary methods to access Key Vault from your Flask application:
-
 ### Method 1: Environment Variables (Recommended for App Service)
 
 With this approach, you:

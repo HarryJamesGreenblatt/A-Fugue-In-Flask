@@ -90,38 +90,51 @@ pip install -r requirements.txt
 
 > **What's happening**: This installs all required packages including Flask, SQLAlchemy, pyodbc for Azure SQL connectivity, and python-dotenv for environment variable management.
 
-## Step 5: Set Up Environment Variables
+## Step 5: Set Up Azure Key Vault
 
-Create a `.env` file in the project root based on the `.env.template` file:
+### Create a Key Vault
+
+Using Azure CLI:
 
 ```bash
-# Windows
-copy .env.template .env
-
-# macOS/Linux
-cp .env.template .env
+# Create a Key Vault (replace VAULT_NAME with your desired name)
+az keyvault create --name flask-fugue-kv --resource-group flaskapp-rg --location westus
 ```
 
-Then edit the `.env` file with your Azure SQL Database credentials:
+### Add Secrets to Key Vault
 
-```
-# Database connection information
-DB_SERVER="your-sql-server.database.windows.net"
-DB_NAME="your-database-name"
-DB_USERNAME="your-username"
-DB_PASSWORD="your-password"
+```bash
+# Generate a random Flask secret key
+SECRET_KEY=$(openssl rand -hex 32)
 
-# Flask configuration
-FLASK_CONFIG="development"  # Options: development, production, testing, azure
-SECRET_KEY="your-secret-key-for-flask"
+# Store it in Key Vault
+az keyvault secret set --vault-name flask-fugue-kv --name "FLASK-SECRET-KEY" --value "$SECRET_KEY"
 
-# Set to True to use centralized database architecture
-USE_CENTRALIZED_DB="True"
+# Store database credentials
+az keyvault secret set --vault-name flask-fugue-kv --name "DB-USERNAME" --value "sqladmin"
+az keyvault secret set --vault-name flask-fugue-kv --name "DB-PASSWORD" --value "YourStrongPassword123!"
 ```
 
-> **Security Note**: Never commit your `.env` file to version control. It's already included in `.gitignore`.
+## Step 6: Configure Environment Variables
 
-## Step 6: Initialize the Azure SQL Database
+Set up the required environment variables in your Azure Web App:
+
+```bash
+# Get the SQL server FQDN
+SQL_SERVER="flask-template-sqlserver.database.windows.net"
+
+# Set application settings using Key Vault references
+az webapp config appsettings set --name flask-fugue-app --resource-group flaskapp-rg --settings \
+    FLASK_CONFIG="production" \
+    SECRET_KEY="@Microsoft.KeyVault(SecretUri=https://flask-fugue-kv.vault.azure.net/secrets/FLASK-SECRET-KEY/)" \
+    DB_SERVER="$SQL_SERVER" \
+    DB_NAME="flask-template-db" \
+    DB_USERNAME="@Microsoft.KeyVault(SecretUri=https://flask-fugue-kv.vault.azure.net/secrets/DB-USERNAME/)" \
+    DB_PASSWORD="@Microsoft.KeyVault(SecretUri=https://flask-fugue-kv.vault.azure.net/secrets/DB-PASSWORD/)" \
+    USE_CENTRALIZED_DB="True"
+```
+
+## Step 7: Initialize the Azure SQL Database
 
 Run the direct database initialization script to create tables in your Azure SQL database:
 
@@ -133,7 +146,7 @@ python -m scripts.direct_db_test
 >
 > **Alternative**: If you prefer using SQLite for local development, run `python -m scripts.init_db` instead.
 
-## Step 7: Run the Azure SQL Connection Fix Script
+## Step 8: Run the Azure SQL Connection Fix Script
 
 To ensure your database connection is properly configured and working:
 
@@ -143,7 +156,7 @@ python -m scripts.azure_sql_fix
 
 > **What's happening**: This script runs diagnostics to check connectivity to your Azure SQL Database, tests multiple connection string formats, and updates your application configuration with a working connection string. It also creates a SQLite fallback if Azure SQL cannot be reached.
 
-## Step 8: Run the Flask Application
+## Step 9: Run the Flask Application
 
 With everything set up, you can now run the application:
 
@@ -162,7 +175,7 @@ For enhanced diagnostics, you can use the run_with_diagnostics script:
 python -m scripts.run_with_diagnostics
 ```
 
-## Step 9: Access the Application
+## Step 10: Access the Application
 
 Open your web browser and navigate to:
 

@@ -46,12 +46,16 @@ try:
     import pyodbc
     import urllib.parse
     from sqlalchemy import create_engine, text
+    from azure.identity import DefaultAzureCredential
+    from azure.keyvault.secrets import SecretClient
 except ImportError:
     logger.error("Required libraries not found. Installing prerequisites...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "pyodbc", "sqlalchemy", "python-dotenv"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pyodbc", "sqlalchemy", "python-dotenv", "azure-identity", "azure-keyvault-secrets"])
     import pyodbc
     import urllib.parse
     from sqlalchemy import create_engine, text
+    from azure.identity import DefaultAzureCredential
+    from azure.keyvault.secrets import SecretClient
 
 # Load connection parameters from environment
 SERVER = os.environ.get("DB_SERVER", "sequitur-sql-server.database.windows.net")  # Default for backward compatibility
@@ -61,8 +65,17 @@ PASSWORD = os.environ.get("DB_PASSWORD")
 
 # Check if password is available
 if not PASSWORD:
-    logger.warning("DB_PASSWORD environment variable not found. Please create a .env file based on .env.template")
-    logger.warning("Continuing with limited functionality...")
+    logger.warning("DB_PASSWORD environment variable not found. Attempting to retrieve from Azure Key Vault...")
+    try:
+        credential = DefaultAzureCredential()
+        key_vault_name = os.environ.get("KEY_VAULT_NAME")
+        key_vault_uri = f"https://{key_vault_name}.vault.azure.net"
+        secret_client = SecretClient(vault_url=key_vault_uri, credential=credential)
+        PASSWORD = secret_client.get_secret("DB-PASSWORD").value
+        logger.info("Successfully retrieved DB_PASSWORD from Azure Key Vault")
+    except Exception as e:
+        logger.error(f"Failed to retrieve DB_PASSWORD from Azure Key Vault: {e}")
+        logger.warning("Continuing with limited functionality...")
 
 def print_separator(title):
     """Print a separator line with title for better log readability"""

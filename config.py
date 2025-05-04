@@ -18,6 +18,8 @@ particularly for configuration management, which recommends storing config in th
 import os
 from dotenv import load_dotenv
 import logging
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -59,6 +61,10 @@ class Config:
     # Database connection timeout (in seconds)
     DB_CONNECTION_TIMEOUT = int(os.environ.get('DB_CONNECTION_TIMEOUT', '60'))
 
+    # Azure Key Vault configuration
+    KEY_VAULT_NAME = os.environ.get('KEY_VAULT_NAME')
+    KEY_VAULT_URI = f"https://{KEY_VAULT_NAME}.vault.azure.net" if KEY_VAULT_NAME else None
+
     @staticmethod
     def build_mssql_uri(server, database, username, password):
         """
@@ -79,6 +85,18 @@ class Config:
         logger.info(f"Built Azure SQL connection string from environment variables")
         logger.info(f"Added connection reliability parameters to database URI")
         return connection_string
+
+    @staticmethod
+    def get_secret(secret_name):
+        """
+        Retrieve a secret from Azure Key Vault.
+        """
+        if not Config.KEY_VAULT_URI:
+            raise ValueError("KEY_VAULT_URI is not set. Cannot retrieve secrets from Key Vault.")
+        
+        credential = DefaultAzureCredential()
+        client = SecretClient(vault_url=Config.KEY_VAULT_URI, credential=credential)
+        return client.get_secret(secret_name).value
 
 class DevelopmentConfig(Config):
     """
@@ -148,6 +166,14 @@ class DevelopmentConfig(Config):
             }
         }
 
+    # Retrieve secrets from Azure Key Vault
+    if Config.KEY_VAULT_URI:
+        try:
+            SECRET_KEY = Config.get_secret('FLASK-SECRET-KEY')
+            DB_USERNAME = Config.get_secret('DB-USERNAME')
+            DB_PASSWORD = Config.get_secret('DB-PASSWORD')
+        except Exception as e:
+            logger.error(f"Error retrieving secrets from Key Vault: {e}")
 
 class TestingConfig(Config):
     """
@@ -164,7 +190,15 @@ class TestingConfig(Config):
     instance_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance')
     os.makedirs(instance_path, exist_ok=True)
     SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URI', f'sqlite:///{os.path.join(instance_path, "test.db")}')
-
+    
+    # Retrieve secrets from Azure Key Vault
+    if Config.KEY_VAULT_URI:
+        try:
+            SECRET_KEY = Config.get_secret('FLASK-SECRET-KEY')
+            DB_USERNAME = Config.get_secret('DB-USERNAME')
+            DB_PASSWORD = Config.get_secret('DB-PASSWORD')
+        except Exception as e:
+            logger.error(f"Error retrieving secrets from Key Vault: {e}")
 
 class ProductionConfig(Config):
     """
@@ -238,6 +272,14 @@ class ProductionConfig(Config):
             'ApplicationIntent': 'ReadWrite'  # Ensure we're connecting to primary replica
         }
 
+    # Retrieve secrets from Azure Key Vault
+    if Config.KEY_VAULT_URI:
+        try:
+            SECRET_KEY = Config.get_secret('FLASK-SECRET-KEY')
+            DB_USERNAME = Config.get_secret('DB-USERNAME')
+            DB_PASSWORD = Config.get_secret('DB-PASSWORD')
+        except Exception as e:
+            logger.error(f"Error retrieving secrets from Key Vault: {e}")
 
 class AzureConfig(ProductionConfig):
     """
@@ -286,6 +328,14 @@ class AzureConfig(ProductionConfig):
     # Log Azure configuration details
     logger.info("Azure config initialized with centralized database architecture")
 
+    # Retrieve secrets from Azure Key Vault
+    if Config.KEY_VAULT_URI:
+        try:
+            SECRET_KEY = Config.get_secret('FLASK-SECRET-KEY')
+            DB_USERNAME = Config.get_secret('DB-USERNAME')
+            DB_PASSWORD = Config.get_secret('DB-PASSWORD')
+        except Exception as e:
+            logger.error(f"Error retrieving secrets from Key Vault: {e}")
 
 # Map config environment names to config classes for easy selection
 config_by_name = {
