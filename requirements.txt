@@ -13,6 +13,10 @@ psycopg2-binary==2.9.9  # PostgreSQL adapter for Python
 pyodbc==4.0.39  # Microsoft SQL Server driver
 sqlalchemy-pytds==0.3.2  # Alternative to sqlalchemy-pyodbc-azure for SQL Server
 
+# Azure Key Vault integration for secure credential management
+azure-identity==1.14.0  # DefaultAzureCredential for authentication
+azure-keyvault-secrets==4.7.0  # Azure Key Vault Secrets client
+
 # Removed all Azure CLI and identity packages to resolve deployment conflicts.
 # These packages aren't needed for the Flask application to run on Azure App Service.
 # GitHub Actions handles the deployment process without requiring these dependencies.

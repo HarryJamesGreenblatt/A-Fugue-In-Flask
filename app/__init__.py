@@ -13,10 +13,17 @@ The factory pattern enables:
 
 This module also initializes Flask extensions and registers blueprints.
 """
+import os
+import logging
+import urllib.parse
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Initialize extensions at module level but without binding to an application yet
 # This follows the Flask extension pattern for use with the application factory
@@ -48,6 +55,41 @@ def create_app(config_object='config.active_config'):
     
     # Load configuration from the specified object or module
     app.config.from_object(config_object)
+    
+    # Check for centralized database configuration
+    if app.config.get('USE_CENTRALIZED_DB'):
+        logger.info("Initializing with centralized database configuration")
+        
+        # Check for template override in app settings (Azure App Service)
+        if os.environ.get('TEMPLATE_DATABASE_URI'):
+            logger.info("Using TEMPLATE_DATABASE_URI from app settings")
+            template_uri = os.environ.get('TEMPLATE_DATABASE_URI')
+            
+            # Fix for connection string params that might be missing
+            if 'Encrypt=' not in template_uri and '&Encrypt=' not in template_uri:
+                if '?' in template_uri:
+                    template_uri += '&Encrypt=yes'
+                else:
+                    template_uri += '?Encrypt=yes'
+                    
+            if 'TrustServerCertificate=' not in template_uri and '&TrustServerCertificate=' not in template_uri:
+                template_uri += '&TrustServerCertificate=no'
+                
+            if 'Connection+Timeout=' not in template_uri and '&Connection+Timeout=' not in template_uri:
+                template_uri += '&Connection+Timeout=30'
+                
+            app.config['SQLALCHEMY_DATABASE_URI'] = template_uri
+            
+        # Log database connection info (without credentials)
+        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        if '@' in db_uri:
+            parts = db_uri.split('@')
+            masked_uri = f"***:***@{parts[1]}" if len(parts) > 1 else db_uri
+            logger.info(f"Database URI: {masked_uri}")
+        
+        logger.info(f"DB_SERVER: {app.config.get('DB_SERVER')}")
+        logger.info(f"DB_NAME: {app.config.get('DB_NAME')}")
+        logger.info(f"USE_CENTRALIZED_DB: {app.config.get('USE_CENTRALIZED_DB')}")
 
     # Initialize extensions with the application instance
     # This binds previously initialized extensions to this specific app
@@ -73,5 +115,16 @@ def create_app(config_object='config.active_config'):
     def shell_context():
         """Adds key objects to Flask shell context for interactive debugging."""
         return {'app': app, 'db': db}
+    
+    # Register error handlers
+    @app.errorhandler(500)
+    def server_error(e):
+        logger.error(f"Server error: {e}")
+        return "Internal Server Error", 500
+    
+    @app.errorhandler(Exception)
+    def unhandled_exception(e):
+        logger.error(f"Unhandled exception: {e}")
+        return "Internal Server Error", 500
         
     return app

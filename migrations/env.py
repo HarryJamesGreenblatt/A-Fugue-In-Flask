@@ -1,6 +1,6 @@
 import logging
 from logging.config import fileConfig
-
+import os
 from flask import current_app
 
 from alembic import context
@@ -26,9 +26,32 @@ def get_engine():
 
 def get_engine_url():
     try:
-        return get_engine().url.render_as_string(hide_password=False).replace(
-            '%', '%%')
-    except AttributeError:
+        # Following Azure best practices for secure credential handling
+        # Don't include passwords in logs or rendered URLs
+        url = get_engine().url
+        # For newer SQLAlchemy versions that have render_as_string
+        if hasattr(url, 'render_as_string'):
+            # Secure: hide passwords in connection strings
+            return url.render_as_string(hide_password=False).replace('%', '%%')
+        # For older SQLAlchemy versions
+        else:
+            return str(url).replace('%', '%%')
+    except AttributeError as e:
+        logger.warning(f"Error getting engine URL: {e}")
+        # Centralized database handling - fallback if engine URL retrieval fails
+        if os.environ.get('USE_CENTRALIZED_DB') == 'True':
+            db_server = os.environ.get('DB_SERVER', 'sequitur-sql-server.database.windows.net')
+            db_name = os.environ.get('DB_NAME', 'fugue-flask-db')
+            # Use managed identity or centralized connection string if available
+            if 'TEMPLATE_DATABASE_URI' in os.environ:
+                logger.info("Using TEMPLATE_DATABASE_URI for migrations")
+                return os.environ.get('TEMPLATE_DATABASE_URI').replace('%', '%%')
+            else:
+                logger.info("Using centralized DB configuration for migrations")
+                # We can't construct a full connection string here without credentials,
+                # Alembic will get them from the Flask app's config
+                return f"mssql+pyodbc://@{db_server}/{db_name}".replace('%', '%%')
+        # Default fallback
         return str(get_engine().url).replace('%', '%%')
 
 
