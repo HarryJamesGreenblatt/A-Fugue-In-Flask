@@ -9,6 +9,10 @@ import sys
 import pyodbc
 import logging
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
@@ -23,14 +27,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger("schema_update")
 
-# Azure SQL connection parameters
-SERVER = "sequitur-sql-server.database.windows.net"
-DATABASE = "fugue-flask-db"
-USERNAME = "sqladmin"
-PASSWORD = "SecureP@ssw0rd!"
+# Azure SQL connection parameters from environment variables
+SERVER = os.environ.get("DB_SERVER", "sequitur-sql-server.database.windows.net")  # Default for backward compatibility
+DATABASE = os.environ.get("DB_NAME", "fugue-flask-db")  # Default for backward compatibility
+USERNAME = os.environ.get("DB_USERNAME", "sqladmin")  # Default for backward compatibility
+PASSWORD = os.environ.get("DB_PASSWORD")
 
 def connect_to_db():
     """Create a connection to the Azure SQL database"""
+    # Check if the password is available
+    if not PASSWORD:
+        logger.error("DB_PASSWORD environment variable is not set. Please create a .env file based on .env.template")
+        return None
+        
     conn_str = (
         f"DRIVER={{ODBC Driver 17 for SQL Server}};"
         f"SERVER={SERVER};"

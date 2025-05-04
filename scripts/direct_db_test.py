@@ -5,10 +5,14 @@ This script uses a direct PyODBC connection to create tables in the Azure SQL da
 It bypasses SQLAlchemy and Flask to ensure reliable connection.
 """
 import sys
+import os
 import json
 from pathlib import Path
 import logging
-import pyodbc
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -17,11 +21,17 @@ logger = logging.getLogger(__name__)
 def create_tables_direct():
     """Initialize the database schema using direct SQL commands"""
     try:
-        # Hardcoded connection parameters - safer than parsing
-        server = "sequitur-sql-server.database.windows.net"
-        database = "fugue-flask-db"
-        username = "sqladmin"
-        password = "SecureP@ssw0rd!"
+        # Load connection parameters from environment variables
+        server = os.environ.get("DB_SERVER", "sequitur-sql-server.database.windows.net")  # Default for backward compatibility
+        database = os.environ.get("DB_NAME", "fugue-flask-db")  # Default for backward compatibility
+        username = os.environ.get("DB_USERNAME", "sqladmin")  # Default for backward compatibility
+        password = os.environ.get("DB_PASSWORD")
+        
+        # Check if required environment variables are set
+        if not password:
+            logger.error("DB_PASSWORD is not set in environment variables or .env file")
+            logger.error("Please create a .env file based on the .env.template file")
+            return False
         
         logger.info(f"Using connection parameters - Server: {server}, Database: {database}, Username: {username}")
         
@@ -97,6 +107,15 @@ def create_tables_direct():
         return False
 
 if __name__ == "__main__":
+    # Import PyODBC here to allow for installing it if needed
+    try:
+        import pyodbc
+    except ImportError:
+        logger.error("PyODBC library not found. Installing now...")
+        import subprocess
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pyodbc", "python-dotenv"])
+        import pyodbc
+
     logger.info("Starting direct database initialization...")
     success = create_tables_direct()
     

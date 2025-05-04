@@ -10,6 +10,7 @@ Following Azure best practices:
 - Implements a local SQLite fallback that will allow local development
 - Updates configuration files to use the working connection
 - Provides detailed diagnostics about the connection failure
+- Loads credentials from environment variables, not hardcoded values
 """
 import os
 import sys
@@ -22,6 +23,10 @@ import logging
 import time
 import traceback
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
@@ -43,16 +48,21 @@ try:
     from sqlalchemy import create_engine, text
 except ImportError:
     logger.error("Required libraries not found. Installing prerequisites...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "pyodbc", "sqlalchemy"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pyodbc", "sqlalchemy", "python-dotenv"])
     import pyodbc
     import urllib.parse
     from sqlalchemy import create_engine, text
 
-# Constants
-SERVER = "sequitur-sql-server.database.windows.net"
-DATABASE = "fugue-flask-db"
-USERNAME = "sqladmin"
-PASSWORD = "SecureP@ssw0rd!"
+# Load connection parameters from environment
+SERVER = os.environ.get("DB_SERVER", "sequitur-sql-server.database.windows.net")  # Default for backward compatibility
+DATABASE = os.environ.get("DB_NAME", "fugue-flask-db")  # Default for backward compatibility
+USERNAME = os.environ.get("DB_USERNAME", "sqladmin")  # Default for backward compatibility
+PASSWORD = os.environ.get("DB_PASSWORD")
+
+# Check if password is available
+if not PASSWORD:
+    logger.warning("DB_PASSWORD environment variable not found. Please create a .env file based on .env.template")
+    logger.warning("Continuing with limited functionality...")
 
 def print_separator(title):
     """Print a separator line with title for better log readability"""
@@ -141,6 +151,11 @@ def test_connection_variants():
     """Test various connection string formats to find one that works"""
     print_separator("CONNECTION STRING VARIANTS")
     
+    # Check if we have the password available
+    if not PASSWORD:
+        logger.error("Cannot test connections without DB_PASSWORD environment variable")
+        return None
+        
     connection_variants = [
         # Variant 1: Basic format
         {
@@ -212,7 +227,7 @@ def update_appsettings_json(working_connection=None):
         else:
             settings = {}
         
-        if working_connection:
+        if working_connection and PASSWORD:
             # Create a SQLAlchemy URI that is compatible with Flask-SQLAlchemy
             # Use a format that doesn't include the tcp: prefix which causes port parsing issues
             sqlalchemy_uri = (
@@ -318,6 +333,10 @@ def suggest_fixes():
     logger.info("   - This script has set up a SQLite fallback database")
     logger.info("   - You can use it for development until Azure SQL connectivity is restored")
     logger.info("   - Username: admin, Password: AdminPass123!")
+
+    logger.info("6. Set up environment variables:")
+    logger.info("   - Copy .env.template to .env")
+    logger.info("   - Fill in your actual database credentials in the .env file")
 
 def main():
     """Main function running all checks"""

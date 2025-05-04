@@ -3,6 +3,7 @@ Diagnostic Wrapper for Flask Application
 
 This script runs the Flask application with enhanced error monitoring and logging.
 It captures detailed diagnostic information about database connections and startup errors.
+Uses environment variables for credentials following Azure security best practices.
 """
 import os
 import sys
@@ -10,6 +11,10 @@ import time
 import logging
 import traceback
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
@@ -25,13 +30,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("diagnostics")
 
-# Override problematic database connection with working one
+# Override problematic database connection with working one if needed
 # This is critical - set before importing app modules
-os.environ['OVERRIDE_DB_URI'] = (
-    "mssql+pyodbc://sqladmin:SecureP@ssw0rd!@tcp:sequitur-sql-server.database.windows.net,1433/fugue-flask-db"
-    "?driver=ODBC+Driver+17+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes"
-    "&Connection+Timeout=30&ConnectRetryCount=2&ConnectRetryInterval=10"
-)
 os.environ['USE_OVERRIDE_DB_URI'] = 'True'
 
 # Import app-specific modules
@@ -68,7 +68,7 @@ def check_odbc_drivers():
                 logger.warning("No SQL Server ODBC drivers found!")
         return drivers
     except Exception as e:
-        logger.error(f"Error checking ODBC drivers: {str(e)}")
+        logger.error(f"Error checking ODBC drivers: {e}")
         return []
 
 def check_environment_variables():
@@ -102,11 +102,21 @@ def check_database_connection():
     """Test database connection with several methods"""
     print_separator("DATABASE CONNECTION TEST")
     
-    # Use the override URI we know works
+    # Use the override URI from environment if available, or build one from components
     db_uri = os.environ.get('OVERRIDE_DB_URI')
     if not db_uri:
-        logger.error("No override database URI found in environment!")
-        return False
+        # Get credentials from environment variables
+        server = os.environ.get('DB_SERVER', 'sequitur-sql-server.database.windows.net')
+        database = os.environ.get('DB_NAME', 'fugue-flask-db')
+        username = os.environ.get('DB_USERNAME', 'sqladmin')
+        password = os.environ.get('DB_PASSWORD')
+        
+        if not password:
+            logger.error("DB_PASSWORD environment variable is not set. Please create a .env file based on .env.template")
+            return False
+            
+        # Build a standard connection string
+        db_uri = f"mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes&timeout=30"
     
     # Mask password in connection string for logging
     masked_uri = db_uri
@@ -163,12 +173,15 @@ def check_database_connection():
             try:
                 logger.info("Trying direct PyODBC connection...")
                 
-                # Extract connection parameters from URI or use hardcoded values
-                # These should match what you successfully used in direct_db_test.py
-                server = "sequitur-sql-server.database.windows.net"
-                database = "fugue-flask-db"
-                username = "sqladmin"
-                password = "SecureP@ssw0rd!"
+                # Extract connection parameters from environment variables
+                server = os.environ.get('DB_SERVER', 'sequitur-sql-server.database.windows.net')
+                database = os.environ.get('DB_NAME', 'fugue-flask-db')
+                username = os.environ.get('DB_USERNAME', 'sqladmin')
+                password = os.environ.get('DB_PASSWORD')
+                
+                if not password:
+                    logger.error("DB_PASSWORD environment variable is not set")
+                    return False
                 
                 conn_str = (
                     f"DRIVER={{ODBC Driver 17 for SQL Server}};"
@@ -204,11 +217,24 @@ def apply_db_override_patch():
     
     # Define a patching function for each config class
     def patch_config_class(config_class):
-        if os.environ.get('USE_OVERRIDE_DB_URI') == 'True' and os.environ.get('OVERRIDE_DB_URI'):
+        if os.environ.get('USE_OVERRIDE_DB_URI') == 'True':
             logger.info(f"Patching {config_class.__name__} to use override database URI")
             
+            # Use environment variables to get credentials
+            server = os.environ.get('DB_SERVER', 'sequitur-sql-server.database.windows.net')
+            database = os.environ.get('DB_NAME', 'fugue-flask-db')
+            username = os.environ.get('DB_USERNAME', 'sqladmin')
+            password = os.environ.get('DB_PASSWORD')
+            
+            if not password:
+                logger.error("DB_PASSWORD environment variable is not set")
+                # We won't override with an invalid connection string
+                return
+                
+            # Build a working URI
+            override_uri = f"mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes&timeout=30"
+            
             # Override the database URI
-            override_uri = os.environ.get('OVERRIDE_DB_URI')
             setattr(config_class, 'SQLALCHEMY_DATABASE_URI', override_uri)
             
             # Set appropriate engine options that work with Azure SQL
