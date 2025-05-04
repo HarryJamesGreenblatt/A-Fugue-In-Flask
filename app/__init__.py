@@ -16,7 +16,7 @@ This module also initializes Flask extensions and registers blueprints.
 import os
 import logging
 import urllib.parse
-from flask import Flask
+from flask import Flask, current_app
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
@@ -76,6 +76,24 @@ def retry_connection(max_retries=3, delay=1):
         
         return wrapper
     return decorator
+
+# Update: Function to test database connection - extracted from decorator for Flask 2.3+ compatibility
+@retry_connection(max_retries=5, delay=2)
+def test_database_connection(app):
+    """Test the database connection - compatible with Flask 2.3+ when called from within a request context"""
+    try:
+        logger.info("Testing database connection before handling first request...")
+        with app.app_context():
+            # Try a simple query to validate the connection
+            engine = db.engine
+            with engine.connect() as connection:
+                result = connection.execute("SELECT 1 AS test")
+                for row in result:
+                    logger.info(f"Database connection test successful: {row.test}")
+    except Exception as e:
+        logger.error(f"Database connection test failed: {str(e)}")
+        logger.error(f"Connection string (masked): {mask_connection_string(app.config.get('SQLALCHEMY_DATABASE_URI', ''))}")
+        raise
 
 def create_app(config_object='config.active_config'):
     """
@@ -153,25 +171,21 @@ def create_app(config_object='config.active_config'):
     db.init_app(app)  # Connect SQLAlchemy to this application
     migrate.init_app(app, db)  # Connect Alembic migrations to this application and database
     
-    # Add database connection testing on startup
-    # Following Azure best practices for diagnostics and resilient database connections
-    @app.before_first_request
-    @retry_connection(max_retries=5, delay=2)
-    def test_database_connection():
-        """Test the database connection before handling the first request"""
-        try:
-            logger.info("Testing database connection before handling first request...")
-            with app.app_context():
-                # Try a simple query to validate the connection
-                engine = db.engine
-                with engine.connect() as connection:
-                    result = connection.execute("SELECT 1 AS test")
-                    for row in result:
-                        logger.info(f"Database connection test successful: {row.test}")
-        except Exception as e:
-            logger.error(f"Database connection test failed: {str(e)}")
-            logger.error(f"Connection string (masked): {mask_connection_string(app.config.get('SQLALCHEMY_DATABASE_URI', ''))}")
-            raise
+    # Update: Replaced before_first_request with a middleware pattern that's compatible with Flask 2.3+
+    # Database connection testing using a middleware pattern
+    @app.before_request
+    def before_request_middleware():
+        """Middleware to run before each request to ensure database connectivity"""
+        # Check if we need to test the database connection
+        if not hasattr(app, '_database_connection_tested'):
+            try:
+                # Test database connection the first time
+                test_database_connection(app)
+                # Mark connection as tested so we don't repeat for every request
+                app._database_connection_tested = True
+            except Exception as e:
+                logger.error(f"Database connection test failed in middleware: {str(e)}")
+                # Don't set the flag - will retry on next request
     
     # Configure Flask-Login for authentication
     login_manager.init_app(app)
