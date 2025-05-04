@@ -100,9 +100,13 @@ Set up Azure Key Vault to securely store secrets like your database credentials:
 # Create a Key Vault
 az keyvault create --name flask-fugue-kv --resource-group flaskapp-rg --location westus
 
-# Generate and store a secret key
+# Generate a secure random secret key
 SECRET_KEY=$(openssl rand -hex 32)
 az keyvault secret set --vault-name flask-fugue-kv --name "FLASK-SECRET-KEY" --value "$SECRET_KEY"
+
+# Store database credentials securely
+az keyvault secret set --vault-name flask-fugue-kv --name "DB-USERNAME" --value "sqladmin"
+az keyvault secret set --vault-name flask-fugue-kv --name "DB-PASSWORD" --value "YourStrongPassword123!"
 ```
 
 ### 6. Azure SQL Database Setup
@@ -110,32 +114,57 @@ az keyvault secret set --vault-name flask-fugue-kv --name "FLASK-SECRET-KEY" --v
 Create an Azure SQL Server and Database:
 
 ```bash
-# Create SQL Server
-az sql server create --name flask-template-sqlserver --resource-group flaskapp-rg --location westus --admin-user sqladmin --admin-password "YourStrongPassword123!"
+# Create SQL Server with secure admin credentials (from Key Vault)
+DB_USERNAME=$(az keyvault secret show --vault-name flask-fugue-kv --name "DB-USERNAME" --query value -o tsv)
+DB_PASSWORD=$(az keyvault secret show --vault-name flask-fugue-kv --name "DB-PASSWORD" --query value -o tsv)
+
+az sql server create --name flask-template-sqlserver --resource-group flaskapp-rg --location westus \
+  --admin-user "$DB_USERNAME" --admin-password "$DB_PASSWORD"
 
 # Create SQL Database (Basic tier)
 az sql db create --resource-group flaskapp-rg --server flask-template-sqlserver --name flask-template-db --service-objective Basic
 
 # Configure firewall to allow Azure services
-az sql server firewall-rule create --resource-group flaskapp-rg --server flask-template-sqlserver --name "AllowAllAzureServices" --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
+az sql server firewall-rule create --resource-group flaskapp-rg --server flask-template-sqlserver \
+  --name "AllowAllAzureServices" --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
 ```
 
-### 7. Application Settings Configuration
+### 7. Enable Managed Identity for your Web App
 
-Configure your web app settings to include connection strings and environment variables:
+For secure access to Azure Key Vault and potentially Azure SQL:
 
 ```bash
-# Get the secret key from Key Vault
-SECRET_KEY=$(az keyvault secret show --vault-name flask-fugue-kv --name "FLASK-SECRET-KEY" --query value -o tsv)
+# Enable system-assigned managed identity
+az webapp identity assign --name flask-fugue-app --resource-group flaskapp-rg
 
-# Set application settings
-az webapp config appsettings set --name flask-fugue-app --resource-group flaskapp-rg --settings \
-    FLASK_CONFIG="production" \
-    SECRET_KEY="$SECRET_KEY" \
-    DATABASE_URI="mssql+pyodbc://sqladmin:YourStrongPassword123!@flask-template-sqlserver.database.windows.net/flask-template-db?driver=ODBC+Driver+17+for+SQL+Server"
+# Get the principal ID of the assigned identity
+PRINCIPAL_ID=$(az webapp identity show --name flask-fugue-app --resource-group flaskapp-rg --query principalId -o tsv)
+
+# Grant the identity access to Key Vault secrets
+az keyvault set-policy --name flask-fugue-kv --object-id $PRINCIPAL_ID \
+  --secret-permissions get list
 ```
 
-### 8. Continuous Deployment with GitHub Actions
+### 8. Application Settings Configuration
+
+Configure your web app settings to include environment variables:
+
+```bash
+# Get the SQL server FQDN
+SQL_SERVER="flask-template-sqlserver.database.windows.net"
+
+# Set application settings using Key Vault references
+az webapp config appsettings set --name flask-fugue-app --resource-group flaskapp-rg --settings \
+    FLASK_CONFIG="production" \
+    SECRET_KEY="@Microsoft.KeyVault(SecretUri=https://flask-fugue-kv.vault.azure.net/secrets/FLASK-SECRET-KEY/)" \
+    DB_SERVER="$SQL_SERVER" \
+    DB_NAME="flask-template-db" \
+    DB_USERNAME="@Microsoft.KeyVault(SecretUri=https://flask-fugue-kv.vault.azure.net/secrets/DB-USERNAME/)" \
+    DB_PASSWORD="@Microsoft.KeyVault(SecretUri=https://flask-fugue-kv.vault.azure.net/secrets/DB-PASSWORD/)" \
+    USE_CENTRALIZED_DB="True"
+```
+
+### 9. Continuous Deployment with GitHub Actions
 
 Set up GitHub Actions for continuous deployment:
 
@@ -157,10 +186,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: '3.9'
     
@@ -168,6 +197,13 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+    
+    - name: Install ODBC Driver
+      run: |
+        curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+        curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list > /etc/apt/sources.list.d/mssql-release.list
+        apt-get update
+        ACCEPT_EULA=Y apt-get install -y msodbcsql17
     
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
@@ -187,41 +223,55 @@ az webapp deployment list-publishing-profiles --name flask-fugue-app --resource-
 3. Add the publish profile as a GitHub secret:
 
 ```bash
-# Using GitHub CLI
+# Using GitHub CLI (or add it manually through the GitHub web interface)
 gh secret set AZURE_WEBAPP_PUBLISH_PROFILE --body "$(cat azure-publish-profile.xml)"
 ```
-****
-### 9. Code Modifications for Azure SQL Support
 
-Ensure your application is configured for Azure SQL:
+### 10. Azure Startup Script Configuration
 
-1. Add the required dependencies to `requirements.txt`:
-```
-pyodbc==4.0.39
-sqlalchemy-pytds==0.3.2  # Alternative for SQL Server connections
-```
+Create a startup script specifically for Azure deployment:
 
-> **Note**: We use the standard `pyodbc` package with SQLAlchemy's built-in MS SQL Server dialect instead of the `sqlalchemy-pyodbc-azure` package (which may not be available in all Python environments).
+1. Create `startup_azure.sh` in your project root:
 
-2. Update `startup.sh` to handle Azure SQL connections:
 ```bash
 #!/bin/bash
 
-# Check database type
-if [[ $DATABASE_URI == postgresql://* ]]; then
-    echo "PostgreSQL database detected, running migration script..."
-    python -m scripts.migrate_postgres
-elif [[ $DATABASE_URI == mssql+pyodbc://* ]]; then
-    echo "Azure SQL database detected, running migration script..."
-    flask db upgrade
+echo "Starting Azure deployment script"
+
+# Load required modules for Azure SQL
+echo "Loading ODBC drivers and modules"
+
+# Apply database migrations or create schema
+echo "Setting up database schema"
+if [ "$USE_CENTRALIZED_DB" = "True" ]; then
+  echo "Using Azure SQL Database"
+  
+  # Try running the direct DB initialization script
+  python -m scripts.direct_db_test || echo "Failed to initialize database directly"
+  
+  # Try running schema updates
+  python -m scripts.update_schema || echo "Failed to update schema"
+  
+  # Fall back to standard migrations if needed
+  flask db upgrade || echo "Failed to apply migrations"
 else
-    # Apply regular database migrations
-    echo "Running standard database migrations..."
-    flask db upgrade
+  echo "Using local SQLite database"
+  python -m scripts.init_db
 fi
 
 # Start Gunicorn server
-exec gunicorn --config gunicorn.conf.py "app:create_app()"
+echo "Starting Gunicorn server"
+exec gunicorn --bind=0.0.0.0:8000 --timeout 600 "app:create_app()"
+```
+
+2. Make the script executable and configure the web app to use it:
+
+```bash
+# Make executable
+chmod +x startup_azure.sh
+
+# Configure Azure to use the script
+az webapp config set --name flask-fugue-app --resource-group flaskapp-rg --startup-file "startup_azure.sh"
 ```
 
 ## Monitoring and Management
@@ -235,7 +285,7 @@ az webapp log tail --name flask-fugue-app --resource-group flaskapp-rg
 
 ### Monitoring Application Performance
 
-Consider adding Azure Application Insights for more detailed monitoring:
+Add Azure Application Insights for detailed monitoring:
 
 ```bash
 # Create Application Insights
@@ -264,15 +314,29 @@ To further optimize costs:
 
 ## Troubleshooting Common Issues
 
-### Deployment Failures
+### Azure SQL Connection Issues
 
-1. Check GitHub Actions workflow logs for errors
-2. Verify the publish profile is correctly set in GitHub Secrets
-3. Ensure your application runs locally before deployment
+1. **Firewall Issues**:
+   - Check if the Azure App Service IP is allowed in the SQL firewall
+   - Verify the "Allow Azure Services" rule is enabled
+
+2. **ODBC Driver Issues**:
+   - Ensure the ODBC Driver is available on the App Service
+   - Run the connection troubleshooting script remotely:
+   ```bash
+   az webapp ssh --name flask-fugue-app --resource-group flaskapp-rg
+   # In the SSH session
+   cd site/wwwroot
+   python -m scripts.azure_sql_fix
+   ```
+
+3. **Connection String Errors**:
+   - Check if environment variables are correctly set
+   - Verify Key Vault permissions if using Key Vault references
 
 ### GitHub Actions Authentication Issues
 
-If you encounter an error like "No credentials found. Add an Azure login action before this action" in your GitHub Actions workflow, you need to:
+If you encounter authentication errors in your GitHub Actions workflow:
 
 1. Create a service principal for Azure authentication:
    ```bash
@@ -281,13 +345,10 @@ If you encounter an error like "No credentials found. Add an Azure login action 
 
 2. Add the output JSON as a GitHub secret:
    ```bash
-   # Using GitHub CLI
    gh secret set AZURE_CREDENTIALS --body "$(cat azure_credentials.json)"
    
-   # Or through the GitHub web interface:
-   # Settings > Secrets > Actions > New repository secret
-   # Name: AZURE_CREDENTIALS
-   # Value: [paste entire JSON output]
+   # Delete the local credentials file for security
+   rm azure_credentials.json
    ```
 
 3. Update your GitHub Actions workflow to include an Azure login step:
@@ -298,56 +359,20 @@ If you encounter an error like "No credentials found. Add an Azure login action 
        creds: ${{ secrets.AZURE_CREDENTIALS }}
    ```
 
-4. Delete the local credentials file for security:
-   ```bash
-   rm azure_credentials.json
-   ```
+## Security Best Practices
 
-### Application Startup Errors
+1. **Never hardcode credentials** in scripts or source code
+2. **Use Azure Key Vault** for storing sensitive information
+3. **Implement Managed Identity** for secure access to Azure resources
+4. **Enable HTTPS** and enforce TLS 1.2+
+5. **Configure proper access controls** and follow the principle of least privilege
+6. **Use environment variables** for configuration
+7. **Regularly audit** and rotate credentials
 
-If your application deploys successfully but shows an "Application Error" when you try to access it, the most common issues are:
-
-1. **Missing dependencies**: Azure may not automatically install dependencies during deployment
-2. **Incorrect startup command**: Azure might not identify the correct way to start your Flask app
-3. **Database connection issues**: The connection string may be incorrect or inaccessible
-
-To fix these issues:
-
-1. Create an Azure-specific startup script (`startup_azure.sh`):
-   ```bash
-   #!/bin/bash
-   
-   # Install Python dependencies
-   pip install -r requirements.txt
-   
-   # Check database type and run migrations
-   if [[ $DATABASE_URI == postgresql://* ]]; then
-       echo "PostgreSQL database detected, running migration script..."
-       python -m scripts.migrate_postgres
-   elif [[ $DATABASE_URI == mssql+pyodbc://* ]]; then
-       echo "Azure SQL database detected, running migration script..."
-       flask db upgrade
-   else
-       echo "Running standard database migrations..."
-       flask db upgrade
-   fi
-   
-   # Start Gunicorn server
-   exec gunicorn --bind=0.0.0.0:8000 --timeout 600 "app:create_app()"
-   ```
-
-2. Configure Azure App Service to use your custom startup script:
-   ```bash
-   az webapp config set --name flask-fugue-app --resource-group flaskapp-rg --startup-file "startup_azure.sh"
-   ```
-
-3. View application logs to diagnose specific issues:
-   ```bash
-   az webapp log tail --name flask-fugue-app --resource-group flaskapp-rg
-   ```
-
-## Additional Resources
+## Further Resources
 
 - [Azure App Service Documentation](https://docs.microsoft.com/en-us/azure/app-service/)
 - [Azure SQL Database Documentation](https://docs.microsoft.com/en-us/azure/azure-sql/)
+- [Azure Key Vault Documentation](https://docs.microsoft.com/en-us/azure/key-vault/)
 - [GitHub Actions for Azure](https://github.com/Azure/actions)
+- [pyodbc Documentation](https://github.com/mkleehammer/pyodbc/wiki)

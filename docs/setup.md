@@ -1,6 +1,6 @@
-# A Fugue In Flask - Beginner's Setup Guide
+# A Fugue In Flask - Setup Guide
 
-This step-by-step guide walks you through setting up and running the Flask application, with detailed explanations of each step and common troubleshooting tips.
+This step-by-step guide walks you through setting up and running the Flask application with Azure SQL Database.
 
 ## Prerequisites
 
@@ -9,6 +9,7 @@ Before you begin, make sure you have the following installed on your system:
 - **Python 3.9+**: The programming language used to build the application
 - **pip**: Python package manager (usually comes with Python)
 - **Git**: Version control system (optional, but recommended)
+- **Microsoft ODBC Driver for SQL Server**: Required for Azure SQL connectivity
 - **A code editor**: VS Code, PyCharm, Sublime Text, etc.
 
 ## Step 1: Clone or Download the Repository
@@ -27,7 +28,33 @@ cd A-Fugue-In-Flask
 3. Extract the ZIP file to a folder of your choice
 4. Open a terminal or command prompt and navigate to that folder
 
-## Step 2: Set Up a Virtual Environment
+## Step 2: Install ODBC Driver for SQL Server
+
+### Windows
+
+1. Download the [Microsoft ODBC Driver 17 for SQL Server](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server)
+2. Run the installer and follow the prompts
+
+### macOS
+
+```bash
+brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
+brew update
+brew install msodbcsql17
+```
+
+### Linux (Ubuntu)
+
+```bash
+sudo su
+curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list > /etc/apt/sources.list.d/mssql-release.list
+exit
+sudo apt-get update
+sudo ACCEPT_EULA=Y apt-get install -y msodbcsql17
+```
+
+## Step 3: Set Up a Virtual Environment
 
 A virtual environment isolates your project dependencies from other Python projects.
 
@@ -53,7 +80,7 @@ source venv/bin/activate
 
 > **How to tell if it worked**: Your command prompt should show `(venv)` at the beginning, indicating the virtual environment is active.
 
-## Step 3: Install Dependencies
+## Step 4: Install Dependencies
 
 With your virtual environment activated, install the required packages:
 
@@ -61,65 +88,81 @@ With your virtual environment activated, install the required packages:
 pip install -r requirements.txt
 ```
 
-> **What's happening**: This command reads the `requirements.txt` file and installs all the packages listed there, including Flask and its extensions.
+> **What's happening**: This installs all required packages including Flask, SQLAlchemy, pyodbc for Azure SQL connectivity, and python-dotenv for environment variable management.
 
-> **Troubleshooting**: If you see errors about specific packages not being found, try updating pip (`pip install --upgrade pip`) or install the problematic packages individually.
+## Step 5: Set Up Environment Variables
 
-## Step 4: Set Up Environment Variables
-
-Create a `.env` file in the project root to store configuration variables. You can copy the example file:
+Create a `.env` file in the project root based on the `.env.template` file:
 
 ```bash
 # Windows
-copy .env.example .env
+copy .env.template .env
 
 # macOS/Linux
-cp .env.example .env
+cp .env.template .env
 ```
 
-> **Why this matters**: Environment variables configure how your application behaves (e.g., development mode, database location).
+Then edit the `.env` file with your Azure SQL Database credentials:
 
-## Step 5: Initialize the Database
+```
+# Database connection information
+DB_SERVER="your-sql-server.database.windows.net"
+DB_NAME="your-database-name"
+DB_USERNAME="your-username"
+DB_PASSWORD="your-password"
 
-Run the database initialization script to create the SQLite database and set up the initial user:
+# Flask configuration
+FLASK_CONFIG="development"  # Options: development, production, testing, azure
+SECRET_KEY="your-secret-key-for-flask"
 
-### Windows
+# Set to True to use centralized database architecture
+USE_CENTRALIZED_DB="True"
+```
+
+> **Security Note**: Never commit your `.env` file to version control. It's already included in `.gitignore`.
+
+## Step 6: Initialize the Azure SQL Database
+
+Run the direct database initialization script to create tables in your Azure SQL database:
 
 ```bash
-# Using the provided batch file
-init_db.bat
-
-# OR run the script directly
-python -m scripts.init_db
+python -m scripts.direct_db_test
 ```
 
-### macOS/Linux
+> **What's happening**: This creates the necessary tables in your Azure SQL database using a direct PyODBC connection rather than SQLAlchemy migrations.
+>
+> **Alternative**: If you prefer using SQLite for local development, run `python -m scripts.init_db` instead.
+
+## Step 7: Run the Azure SQL Connection Fix Script
+
+To ensure your database connection is properly configured and working:
 
 ```bash
-python -m scripts.init_db
+python -m scripts.azure_sql_fix
 ```
 
-> **What's happening behind the scenes**:
-> 1. A SQLite database file is created in the `instance` folder
-> 2. Database tables are defined based on your model classes
-> 3. A default admin user is created for you to log in
+> **What's happening**: This script runs diagnostics to check connectivity to your Azure SQL Database, tests multiple connection string formats, and updates your application configuration with a working connection string. It also creates a SQLite fallback if Azure SQL cannot be reached.
 
-> **Troubleshooting**: If you see errors about missing modules, ensure all dependencies are installed and your virtual environment is activated.
-
-## Step 6: Run the Flask Application
+## Step 8: Run the Flask Application
 
 With everything set up, you can now run the application:
 
 ```bash
+# Set configuration to use Azure SQL
+set FLASK_CONFIG=azure  # Windows
+export FLASK_CONFIG=azure  # macOS/Linux
+
+# Run the application
 flask run
 ```
 
-> **What's happening**: This command starts the Flask development server, which:
-> 1. Loads your application from `app.py`
-> 2. Connects to the database
-> 3. Listens for HTTP requests on `http://127.0.0.1:5000`
+For enhanced diagnostics, you can use the run_with_diagnostics script:
 
-## Step 7: Access the Application
+```bash
+python -m scripts.run_with_diagnostics
+```
+
+## Step 9: Access the Application
 
 Open your web browser and navigate to:
 
@@ -127,10 +170,7 @@ Open your web browser and navigate to:
 http://127.0.0.1:5000
 ```
 
-You should see the home page of your Flask application. You can log in with:
-
-- **Username**: admin
-- **Password**: password
+You should see the home page of your Flask application. You can register a new account or log in with the default admin account (if you created one during initialization).
 
 ## Understanding the Project Structure
 
@@ -138,43 +178,54 @@ Here's a quick overview of the most important files and directories:
 
 ```
 app.py                  # Application entry point
+config.py               # Configuration settings
+appsettings.json        # Database connection settings
 ├── app/                # Main application package
 │   ├── __init__.py     # Application factory
 │   ├── routes/         # URL route handlers
 │   ├── models/         # Database models
 │   ├── templates/      # HTML templates
 │   └── static/         # CSS, JavaScript, images
-├── instance/           # Instance-specific data (like SQLite database)
-└── migrations/         # Database migration files
+├── scripts/            # Utility scripts for database operations
+│   ├── azure_sql_fix.py    # Diagnostic and fix script for Azure SQL
+│   ├── direct_db_test.py   # Direct table creation script
+│   └── update_schema.py    # Schema update utility
+└── docs/               # Documentation
+    └── azure_sql_database.md  # Azure SQL specific documentation
 ```
 
 ## Common Issues and Solutions
 
-### "No module named 'flask'"
+### Azure SQL Connection Issues
 
-This means Flask isn't installed in your active environment. Make sure you:
-1. Activated your virtual environment
-2. Ran `pip install -r requirements.txt`
+If you encounter connection problems with Azure SQL:
 
-### "Error: Could not locate a Flask application"
+1. **Firewall Issues**: Ensure your IP address is in the Azure SQL firewall allowlist
+2. **Driver Issues**: Verify the ODBC driver is installed correctly (`pyodbc.drivers()` should list SQL Server drivers)
+3. **Connection String Format**: Different environments might require slightly different connection strings
+4. **Credentials**: Double-check your username, password, server name, and database name
 
-The Flask command can't find your app. Make sure:
-1. You're in the project root directory
-2. Your `.env` file has `FLASK_APP=app.py`
+Run `python -m scripts.azure_sql_fix` to diagnose and resolve these issues automatically.
 
-### Database errors
+### Schema Mismatch
 
-If you see database-related errors:
-1. Make sure you ran the initialization script
-2. Check if the `instance` directory contains a `dev.db` file
-3. If needed, delete the database and re-initialize it
+If your models don't match the database schema:
 
-### "ImportError: No module named 'flask_migrate'"
-
-Some dependencies might be missing. Try:
 ```bash
-pip install flask-migrate
+python -m scripts.update_schema
 ```
+
+This will add any missing columns required by your models.
+
+## Azure Deployment
+
+For deploying to Azure App Service:
+
+1. Create an Azure Web App
+2. Set the required environment variables in the App Service configuration
+3. Deploy your code using Git, GitHub Actions, or Azure DevOps
+
+See `docs/azure_deployment.md` for detailed instructions.
 
 ## Next Steps
 
