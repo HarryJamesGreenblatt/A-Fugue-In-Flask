@@ -21,6 +21,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
 from sqlalchemy.exc import OperationalError
+from sqlalchemy import text  # Import text construct
 import time
 
 # Set up logging
@@ -87,7 +88,8 @@ def test_database_connection(app):
             # Try a simple query to validate the connection
             engine = db.engine
             with engine.connect() as connection:
-                result = connection.execute("SELECT 1 AS test")
+                # Wrap the raw SQL string in text()
+                result = connection.execute(text("SELECT 1 AS test")) 
                 for row in result:
                     logger.info(f"Database connection test successful: {row.test}")
     except Exception as e:
