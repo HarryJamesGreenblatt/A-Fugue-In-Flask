@@ -109,10 +109,7 @@ class Config:
     # Examples: 'flask', 'react', 'blazor', etc.
     TEMPLATE_TYPE = os.environ.get('TEMPLATE_TYPE', 'flask')
     
-    # Centralized database configuration for db-rg resource group
-    # Following Azure best practices for shared database resources
-    DB_SERVER = os.environ.get('DB_SERVER', 'sequitur-sql-server.database.windows.net')
-    DB_NAME = os.environ.get('DB_NAME', 'fugue-flask-db')  # Fixed: removed self reference
+    # Centralized database configuration flags/defaults
     DB_NAME_PREFIX = os.environ.get('DB_NAME_PREFIX', '')  # Optional prefix for database names
     USE_CENTRALIZED_DB = os.environ.get('USE_CENTRALIZED_DB', 'True').lower() == 'true'
 
@@ -143,7 +140,7 @@ class DevelopmentConfig(Config):
             self.SQLALCHEMY_DATABASE_URI = build_mssql_connection_string(
                 username=username,
                 password=password,
-                server=self.DB_SERVER,
+                server=os.environ.get('DB_SERVER'),
                 database=db_name
             )
         else:
@@ -195,18 +192,33 @@ class ProductionConfig(Config):
         
         # If centralized database architecture is enabled (db-rg with shared SQL server)
         if self.USE_CENTRALIZED_DB and not template_specific_uri:
-            # Construct connection string for centralized database architecture
-            db_name = os.environ.get('DB_NAME', f"fugue-flask-db")
+            # Fetch all necessary components for centralized DB
+            db_server = get_key_vault_secret('DB_SERVER', os.environ.get('DB_SERVER', 'sequitur-sql-server.database.windows.net')) 
+            db_name = os.environ.get('DB_NAME', 'fugue-flask-db')  # Keep DB_NAME from env var as it might not be in KV
             username = get_key_vault_secret('DB_USERNAME', os.environ.get('DB_USERNAME', 'sqladmin'))
             password = get_key_vault_secret('DB_PASSWORD', os.environ.get('DB_PASSWORD', ''))
             
-            # Use the centralized connection string builder with improved reliability
-            self.SQLALCHEMY_DATABASE_URI = build_mssql_connection_string(
-                username=username,
-                password=password,
-                server=self.DB_SERVER,
-                database=db_name
-            )
+            # Ensure all components are available before building the string
+            if username and password and db_server and db_name:
+                self.SQLALCHEMY_DATABASE_URI = build_mssql_connection_string(
+                    username=username,
+                    password=password,
+                    server=db_server,  # Use fetched db_server
+                    database=db_name
+                )
+                # Add logging here to confirm values being used
+                logging.info(f"Initializing with centralized database configuration")
+                # Mask password in log
+                masked_uri = self.SQLALCHEMY_DATABASE_URI.replace(password, '******')
+                logging.info(f"Database URI: {masked_uri}")
+                logging.info(f"DB_SERVER: {db_server}")  # Log the actual server used
+                logging.info(f"DB_NAME: {db_name}")
+                logging.info(f"USE_CENTRALIZED_DB: {self.USE_CENTRALIZED_DB}")
+            else:
+                # Log which specific component is missing
+                missing = [comp for comp, val in {'username': username, 'password': password, 'server': db_server, 'name': db_name}.items() if not val]
+                logging.error(f"Missing database credentials/config for centralized setup: {' '.join(missing)}")
+                self.SQLALCHEMY_DATABASE_URI = None  # Or raise an error
         else:
             # Fall back to generic database URI or SQLite database with template-specific name
             template_suffix = f"-{self.TEMPLATE_TYPE}" if self.TEMPLATE_TYPE != 'flask' else ""
