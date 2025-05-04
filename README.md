@@ -1,17 +1,17 @@
 # A Fugue In Flask
 
-A comprehensive Flask application template with Azure deployment capabilities.
+A comprehensive Flask application template with Azure SQL Database integration and Azure deployment capabilities.
 
 ## Overview
 
-"A Fugue In Flask" provides a production-ready Flask application template that follows best practices for organization, configuration, and deployment. It serves as a solid foundation for building web applications that can be easily deployed to Azure.
+"A Fugue In Flask" provides a production-ready Flask application template that follows best practices for organization, configuration, and deployment. It serves as a solid foundation for building web applications that can be easily deployed to Azure with Azure SQL Database connectivity.
 
 ## Features
 
 - Modular application structure using Flask blueprints
 - Environment-specific configuration management
-- Database integration with SQLAlchemy
-- Authentication system
+- Azure SQL Database integration with SQLAlchemy and pyodbc
+- Authentication system with secure password hashing
 - Azure deployment setup with CI/CD
 - Testing framework
 - Comprehensive documentation
@@ -23,6 +23,7 @@ A comprehensive Flask application template with Azure deployment capabilities.
 - Python 3.9 or higher
 - pip (Python package manager)
 - Git
+- Microsoft ODBC Driver for SQL Server
 
 ### Installation
 
@@ -32,12 +33,30 @@ A comprehensive Flask application template with Azure deployment capabilities.
    cd A-Fugue-In-Flask
    ```
 
-2. Create a virtual environment
+2. Install the Microsoft ODBC Driver for SQL Server
+   - Windows: [Download and install ODBC Driver 17](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server)
+   - macOS: 
+     ```
+     brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
+     brew update
+     brew install msodbcsql17
+     ```
+   - Linux (Ubuntu):
+     ```
+     sudo su
+     curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+     curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list > /etc/apt/sources.list.d/mssql-release.list
+     exit
+     sudo apt-get update
+     sudo ACCEPT_EULA=Y apt-get install -y msodbcsql17
+     ```
+
+3. Create a virtual environment
    ```
    python -m venv venv
    ```
 
-3. Activate the virtual environment
+4. Activate the virtual environment
    - Windows: 
      ```
      venv\Scripts\activate
@@ -47,32 +66,67 @@ A comprehensive Flask application template with Azure deployment capabilities.
      source venv/bin/activate
      ```
 
-4. Install dependencies
+5. Install dependencies
    ```
    pip install -r requirements.txt
    ```
 
-5. Set up environment variables by creating a `.env` file (or copy from `.env.example`)
+6. Set up environment variables by creating a `.env` file (or copy from `.env.template`)
    ```
-   copy .env.example .env
+   # Windows
+   copy .env.template .env
+   
+   # macOS/Linux
+   cp .env.template .env
+   ```
+   
+   Edit the `.env` file with your Azure SQL Database credentials:
+   ```
+   # Database connection information
+   DB_SERVER="your-sql-server.database.windows.net"
+   DB_NAME="your-database-name"
+   DB_USERNAME="your-username"
+   DB_PASSWORD="your-password"
+   
+   # Flask configuration
+   FLASK_CONFIG="development"  # Options: development, production, testing, azure
+   SECRET_KEY="your-secret-key-for-flask"
+   
+   # Set to True to use centralized database architecture
+   USE_CENTRALIZED_DB="True"
    ```
 
-6. Initialize the database
-   - Windows: Run the batch file
+7. Initialize the database
+   - For Azure SQL Database:
      ```
-     init_db.bat
+     python -m scripts.direct_db_test
      ```
-   - macOS/Linux: Run the Python script directly
+   - For local SQLite development:
      ```
      python -m scripts.init_db
      ```
 
-7. Run the application
+8. Run the Azure SQL connection fix script:
    ```
-   flask run
+   python -m scripts.azure_sql_fix
    ```
 
-8. Access the application at [flask-fugue-app.azurewebsites.net](https://flask-fugue-app.azurewebsites.net)
+9. Run the application
+   ```
+   # Set configuration to use Azure SQL
+   set FLASK_CONFIG=azure  # Windows
+   export FLASK_CONFIG=azure  # macOS/Linux
+   
+   # Run the application
+   flask run
+   ```
+   
+   For enhanced diagnostics:
+   ```
+   python -m scripts.run_with_diagnostics
+   ```
+
+10. Access the application at http://127.0.0.1:5000
 
 ### Default Login
 
@@ -89,6 +143,7 @@ After initialization, a default admin user is created:
 ```
 app.py                  # Application entry point
 config.py               # Configuration settings
+appsettings.json        # Database connection settings
 app/                    # Application package
   ├── __init__.py       # Application factory
   ├── models/           # Database models
@@ -97,16 +152,23 @@ app/                    # Application package
   ├── static/           # Static files
   ├── forms/            # Form classes
   └── utils/            # Utility functions
+scripts/                # Utility scripts
+  ├── azure_sql_fix.py  # Azure SQL connectivity diagnostic and fix
+  ├── direct_db_test.py # Direct database initialization
+  └── update_schema.py  # Schema update utility
 ```
 
 ### Environment Variables
 
 Key environment variables (defined in `.env`):
 - `FLASK_APP`: Main application module (default: app.py)
-- `FLASK_CONFIG`: Configuration environment (development, testing, production)
+- `FLASK_CONFIG`: Configuration environment (development, production, testing, azure)
 - `SECRET_KEY`: Secret key for session security
-- `DEV_DATABASE_URI`: Database URI for development
-- `DATABASE_URI`: Database URI for production
+- `DB_SERVER`: Azure SQL server address
+- `DB_NAME`: Azure SQL database name
+- `DB_USERNAME`: Azure SQL username
+- `DB_PASSWORD`: Azure SQL password
+- `USE_CENTRALIZED_DB`: Set to "True" to use Azure SQL Database
 
 ## Documentation
 
@@ -127,7 +189,6 @@ We provide extensive documentation for deploying to Azure:
 - [Azure Key Vault Integration](./docs/azure_key_vault.md) - Guide for securely managing secrets with Azure Key Vault
 - [GitHub Actions CI/CD](./docs/github_actions_azure.md) - Setting up continuous deployment with GitHub Actions
 - [Azure SQL Database Integration](./docs/azure_sql_database.md) - Connecting your Flask app to Azure SQL Database
-- [PostgreSQL Guide](./docs/postgresql_guide.md) - Alternative PostgreSQL deployment options
 
 ## Testing
 
@@ -162,6 +223,16 @@ When deployed, this application uses these Azure resources:
 - **Azure SQL Database**: Database backend (Basic tier, ~$5/month)
 - **Azure Key Vault**: Securely stores application secrets and credentials
 - **GitHub Actions**: Provides CI/CD pipeline integration
+
+## Troubleshooting
+
+If you encounter issues with Azure SQL connectivity:
+
+1. Run the diagnostic script: `python -m scripts.azure_sql_fix`
+2. Check if your IP is in the Azure SQL firewall allowlist
+3. Verify the ODBC driver is installed: `python -c "import pyodbc; print(pyodbc.drivers())"`
+4. Check environment variables in your `.env` file
+5. For schema issues: `python -m scripts.update_schema`
 
 ## License
 
