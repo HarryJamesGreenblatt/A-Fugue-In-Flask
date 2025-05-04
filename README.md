@@ -126,7 +126,7 @@ A comprehensive Flask application template with Azure SQL Database integration a
    python -m scripts.run_with_diagnostics
    ```
 
-10. Access the application at http://127.0.0.1:5000
+10. Access the application at http://flask-fugue-app.azurewebsites.net/
 
 ### Default Login
 
