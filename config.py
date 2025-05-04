@@ -52,7 +52,20 @@ def get_key_vault_secret(secret_name, default_value=None):
         # This supports Managed Identity, Visual Studio, Azure CLI, etc.
         credential = DefaultAzureCredential()
         client = SecretClient(vault_url=key_vault_url, credential=credential)
-        secret = client.get_secret(secret_name)
+        
+        # Map environment variable names to Key Vault secret names
+        # This allows for different naming conventions between code and Key Vault
+        secret_name_mapping = {
+            'SECRET_KEY': 'FLASK-SECRET-KEY',
+            'DB_USERNAME': 'DbUsername',
+            'DB_PASSWORD': 'DbPassword',
+            'DB_SERVER': 'DbServer'
+        }
+        
+        # Use the mapped name if it exists, otherwise use the original name
+        kv_secret_name = secret_name_mapping.get(secret_name, secret_name)
+        
+        secret = client.get_secret(kv_secret_name)
         return secret.value
     except Exception as e:
         logging.warning(f"Failed to get secret {secret_name} from Key Vault: {str(e)}")
