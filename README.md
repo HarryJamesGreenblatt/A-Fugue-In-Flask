@@ -138,53 +138,119 @@ After initialization, a default admin user is created:
 
 ```
 app.py                  # Application entry point
-config.py               # Configuration settings
+config.py               # Configuration settings for different environments
 appsettings.json        # Database connection settings
-app/                    # Application package
-  ├── __init__.py       # Application factory
-  ├── models/           # Database models
-  ├── routes/           # Blueprint routes
-  ├── templates/        # Jinja2 templates
-  ├── static/           # Static files
-  ├── forms/            # Form classes
-  └── utils/            # Utility functions
-scripts/                # Utility scripts
-  ├── azure_sql_fix.py  # Azure SQL connectivity diagnostic and fix
-  ├── direct_db_test.py # Direct database initialization
-  └── update_schema.py  # Schema update utility
+requirements.txt        # Python dependencies
+.env                    # Local environment variables (not in version control)
+gunicorn.conf.py        # Gunicorn configuration for production
+startup_azure.sh        # Azure startup script
+
+├── .github/            # GitHub configuration
+│   └── workflows/      # GitHub Actions workflows
+│       └── azure-deploy.yml  # Azure deployment workflow
+
+├── app/                # Main application package
+│   ├── __init__.py     # Application factory
+│   ├── models/         # Database models
+│   │   ├── __init__.py
+│   │   └── user.py     # User authentication model
+│   ├── routes/         # Blueprint routes
+│   │   ├── __init__.py
+│   │   ├── auth.py     # Authentication routes
+│   │   └── main.py     # Main application routes
+│   ├── templates/      # Jinja2 templates
+│   │   ├── base.html   # Base template with layout
+│   │   ├── auth/       # Authentication templates
+│   │   │   ├── login.html
+│   │   │   └── register.html
+│   │   └── main/       # Main route templates
+│   │       ├── about.html
+│   │       └── index.html
+│   ├── static/         # Static files
+│   │   ├── css/        # CSS stylesheets
+│   │   │   └── style.css
+│   │   └── img/        # Images
+│   │       └── flask-logo.png
+│   ├── forms/          # Form classes
+│   │   ├── __init__.py
+│   │   └── auth.py     # Authentication forms
+│   └── utils/          # Utility functions
+│       └── __init__.py
+
+├── docs/               # Enhanced documentation with Mermaid diagrams
+│   ├── architecture.md             # Application architecture with component diagrams
+│   ├── authentication.md           # Authentication system with sequence diagrams
+│   ├── azure_deployment.md         # Azure deployment with architecture diagrams
+│   ├── azure_key_vault.md          # Key Vault integration with flow diagrams
+│   ├── azure_sql_database.md       # SQL Database with connection flow diagrams
+│   ├── deployment.md               # General deployment instructions
+│   ├── github_actions_azure.md     # GitHub Actions CI/CD setup
+│   ├── setup.md                    # Setup instructions
+│   └── web_architecture.md         # Web architecture diagrams
+
+├── infra/              # Infrastructure as Code
+│   ├── main.bicep      # Main Bicep template for Azure resources
+│   └── sql-server.bicep # SQL Server specific resources
+
+├── instance/           # Instance-specific files
+│   └── dev.db          # SQLite development database
+
+├── migrations/         # Database migrations
+│   ├── versions/       # Migration versions
+│   │   ├── 7f23e04989ee_increase_password_hash_column_length_to_.py
+│   │   └── 9f4a4f0691fe_initial_migration.py
+│   ├── alembic.ini     # Alembic configuration
+│   ├── env.py          # Migration environment
+│   └── README          # Migration instructions
+
+└── scripts/            # Utility scripts
+    ├── advanced_connection_test.py  # In-depth database connection testing
+    ├── azure_sql_fix.py            # Azure SQL connectivity diagnostic and fix
+    ├── check_db_connection.py      # Database connection checker
+    ├── create_tables.py            # Table creation helper
+    ├── direct_db_test.py           # Direct database initialization
+    ├── init_db.py                  # Local database initialization
+    ├── run_with_diagnostics.py     # Run app with enhanced logging
+    ├── test_appsettings.py         # Test appsettings.json configuration
+    ├── test_db_connection.py       # Test database connections
+    ├── update_schema.py            # Schema update utility
+    └── view_local_db.py            # SQLite database inspection tool
 ```
-
-### Environment Variables
-
-Key environment variables (defined in Azure Key Vault):
-- `FLASK_APP`: Main application module (default: app.py)
-- `FLASK_CONFIG`: Configuration environment (development, production, testing, azure)
-- `SECRET_KEY`: Secret key for session security
-- `DB_SERVER`: Azure SQL server address
-- `DB_NAME`: Azure SQL database name
-- `DB_USERNAME`: Azure SQL username
-- `DB_PASSWORD`: Azure SQL password
-- `USE_CENTRALIZED_DB`: Set to "True" to use Azure SQL Database
 
 ## Documentation
 
-### Architecture Documentation
+The project includes comprehensive documentation with visualizations using Mermaid diagrams:
 
-For detailed documentation about the application architecture and implementation:
+### Application Documentation
 
-- [Architecture Documentation](./docs/architecture.md) - Comprehensive overview of application structure and patterns
-- [Web Architecture](./docs/web_architecture.md) - Details about the web application architecture
-- [Authentication](./docs/authentication.md) - Authentication system implementation details
-- [Setup Guide](./docs/setup.md) - Detailed setup instructions for local development
+- [Architecture Overview](./docs/architecture.md) - Detailed application architecture with component diagrams
+- [Authentication System](./docs/authentication.md) - Authentication flow with sequence diagrams
+- [Web Architecture](./docs/web_architecture.md) - Web application architecture and patterns
+- [Setup Guide](./docs/setup.md) - Local development setup instructions
 
-### Azure Deployment Documentation
+### Azure Integration Documentation
 
-We provide extensive documentation for deploying to Azure:
+- [Azure Deployment Guide](./docs/azure_deployment.md) - Complete deployment instructions with architecture diagrams
+- [Azure Key Vault Integration](./docs/azure_key_vault.md) - Secret management with flow diagrams
+- [Azure SQL Database Integration](./docs/azure_sql_database.md) - Database connection flow diagrams
+- [GitHub Actions CI/CD](./docs/github_actions_azure.md) - Continuous deployment pipeline
 
-- [Azure Deployment Guide](./docs/azure_deployment.md) - Complete step-by-step instructions for deploying to Azure
-- [Azure Key Vault Integration](./docs/azure_key_vault.md) - Guide for securely managing secrets with Azure Key Vault
-- [GitHub Actions CI/CD](./docs/github_actions_azure.md) - Setting up continuous deployment with GitHub Actions
-- [Azure SQL Database Integration](./docs/azure_sql_database.md) - Connecting your Flask app to Azure SQL Database
+### Database & Utilities
+
+- **Local Database Tools**: Use the SQLite inspection tool for local development:
+  ```
+  python -m scripts.view_local_db
+  ```
+  
+- **Connection Troubleshooting**: For connectivity issues with Azure SQL:
+  ```
+  python -m scripts.advanced_connection_test
+  ```
+
+- **Environment Configuration**: Review proper configuration settings:
+  ```
+  python -m scripts.check_db_connection
+  ```
 
 ## Testing
 
