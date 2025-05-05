@@ -240,7 +240,7 @@ def generate_diagram(output_path=OUTPUT_PATH, show_diagram=False):
     
     try:
         graph_attrs = {
-            "layout": "fdp",      # Use the default hierarchical engine
+            "layout": "dot",      # Use the default hierarchical engine
             "splines": "spline",  # Use orthogonal splines for edges
         }
         with Diagram("Application Factory Pattern with Blueprint Modularity", 

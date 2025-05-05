@@ -10,16 +10,44 @@
     </div>
 </div>
 
+<!-- Pattern Overview Section - Full Width -->
 <div class="row mb-4">
-    <div class="col-md-8">
+    <div class="col-12">
         <h2>Pattern Overview</h2>
         <p>
             This template implements the <strong>Application Factory Pattern with Blueprint Modularity</strong> - a clean, 
             maintainable architectural approach for Flask applications. This design pattern provides exceptional flexibility,
             testability, and organization for web applications built with Flask.
         </p>
+    </div>
+</div>
+
+<!-- Main Content - Two Columns -->
+<div class="row mb-4">
+    <!-- Left Column: Core Components, MVC, Azure Integration -->
+    <div class="col-md-8">
+        <h3>MVC-like Structure</h3>
+        <p>
+            While Flask doesn't strictly enforce the Model-View-Controller pattern, this implementation follows MVC principles:
+        </p>
+        <ul class="pb-3">
+            <li><strong>Models</strong>: SQLAlchemy models in <code>app/models/</code> define data structure and database interactions</li>
+            <li><strong>Views</strong>: Jinja2 templates in <code>app/templates/</code> handle presentation logic</li>
+            <li><strong>Controllers</strong>: Route functions in <code>app/routes/</code> process requests and control application flow</li>
+        </ul>
         
-        <div class="card mb-4" style="height: max-content;">
+        <h3>Azure Integration Architecture</h3>
+        <p>
+            For Azure deployments, the application is designed to leverage these services in a secure architecture:
+        </p>
+        <ul>
+            <li><strong>Azure App Service</strong>: Hosts the Flask application with production-ready configuration</li>
+            <li><strong>Azure SQL Database</strong>: Provides robust, scalable database storage</li>
+            <li><strong>Azure Key Vault</strong>: Secures sensitive credentials and connection strings</li>
+            <li><strong>Azure Application Insights</strong>: Enables monitoring and diagnostics</li>
+            <li><strong>GitHub Actions</strong>: Powers the CI/CD pipeline deployment</li>
+        </ul>
+        <div class="card mb-4 card-max-content">
             <div class="card-header bg-primary text-white">
                 <h4 class="mb-0">Core Pattern Components</h4>
             </div>
@@ -50,32 +78,11 @@
             </div>
         </div>
         
-        <h3>MVC-like Structure</h3>
-        <p>
-            While Flask doesn't strictly enforce the Model-View-Controller pattern, this implementation follows MVC principles:
-        </p>
-        <ul>
-            <li><strong>Models</strong>: SQLAlchemy models in <code>app/models/</code> define data structure and database interactions</li>
-            <li><strong>Views</strong>: Jinja2 templates in <code>app/templates/</code> handle presentation logic</li>
-            <li><strong>Controllers</strong>: Route functions in <code>app/routes/</code> process requests and control application flow</li>
-        </ul>
-        
-        <h3>Azure Integration Architecture</h3>
-        <p>
-            For Azure deployments, the application is designed to leverage these services in a secure architecture:
-        </p>
-        <ul>
-            <li><strong>Azure App Service</strong>: Hosts the Flask application with production-ready configuration</li>
-            <li><strong>Azure SQL Database</strong>: Provides robust, scalable database storage</li>
-            <li><strong>Azure Key Vault</strong>: Secures sensitive credentials and connection strings</li>
-            <li><strong>Azure Application Insights</strong>: Enables monitoring and diagnostics</li>
-            <li><strong>GitHub Actions</strong>: Powers the CI/CD pipeline deployment</li>
-        </ul>
-        
     </div>
     
+    <!-- Right Column: Use Cases, Benefits, Docs -->
     <div class="col-md-4">
-        <div class="card mb-4" style="height: max-content;">
+        <div class="card mb-4 card-max-content pb-3">
             <div class="card-header bg-success text-white">
                 <h5 class="mb-0">Ideal Use Cases</h5>
             </div>
@@ -91,7 +98,7 @@
             </div>
         </div>
         
-        <div class="card mb-4" style="height: max-content;">
+        <div class="card mb-4 card-max-content pb-3">
             <div class="card-header bg-warning text-dark">
                 <h5 class="mb-0">Pattern Benefits</h5>
             </div>
@@ -113,14 +120,15 @@
                 For more detailed information about the implementation of this architectural pattern, see:
             </p>
             <ul class="mb-0">
-                <li><a href="https://github.com/HarryJamesGreenblatt/A-Fugue-In-Flask/blob/master/docs/architecture.md" target="_blank">Architecture Documentation</a></li>
-                <li><a href="https://github.com/HarryJamesGreenblatt/A-Fugue-In-Flask/blob/master/docs/azure_deployment.md" target="_blank">Azure Deployment Guide</a></li>
-                <li><a href="https://github.com/HarryJamesGreenblatt/A-Fugue-In-Flask/blob/master/docs/web_architecture.md" target="_blank">Web Architecture Overview</a></li>
+                <li><a href="https://github.com/HarryJamesGreenblatt/A-Fugue-In-Flask/blob/master/docs/architecture.md" target="_blank" rel="noopener">Architecture Documentation</a></li>
+                <li><a href="https://github.com/HarryJamesGreenblatt/A-Fugue-In-Flask/blob/master/docs/azure_deployment.md" target="_blank" rel="noopener">Azure Deployment Guide</a></li>
+                <li><a href="https://github.com/HarryJamesGreenblatt/A-Fugue-In-Flask/blob/master/docs/web_architecture.md" target="_blank" rel="noopener">Web Architecture Overview</a></li>
             </ul>
         </div>
     </div>
 </div>
 
+<!-- Architecture Diagram Section - Full Width -->
 <div class="row mb-4">
     <div class="col-12">
         <div class="card">
@@ -134,12 +142,13 @@
                     {% if diagram_type == "html" %}
                         <!-- If we have an HTML diagram, include it -->
                         <iframe src="{{ url_for('static', filename='img/architecture_diagram.html') }}" 
-                                style="width: 100%; height: 600px; border: none;"></iframe>
+                                title="Application Architecture Diagram (HTML)"
+                                class="diagram-iframe"></iframe>
                     {% else %}
                         <!-- Default to PNG image -->
                         <img src="{{ url_for('static', filename='img/architecture_diagram.png') }}" 
                              alt="Application Factory Pattern with Blueprint Modularity" 
-                             class="img-fluid" style="max-width: 90%;">
+                             class="img-fluid diagram-image">
                     {% endif %}
                 </div>
                 

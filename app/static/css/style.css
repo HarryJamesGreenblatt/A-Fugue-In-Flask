@@ -89,3 +89,18 @@ body {
         min-height: calc(100vh - 220px);
     }
 }
+
+/* Styles moved from architecture.html */
+.card-max-content {
+    height: max-content;
+}
+
+.diagram-iframe {
+    width: 100%;
+    height: 600px;
+    border: none;
+}
+
+.diagram-image {
+    max-width: 90%;
+}
