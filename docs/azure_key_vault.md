@@ -19,6 +19,37 @@ Azure Key Vault provides a secure solution that offers:
 4. **Rotation policies**: Easily update and rotate secrets without redeploying applications
 5. **Encrypted storage**: All secrets are encrypted at rest and in transit
 
+```mermaid
+flowchart TD
+    subgraph "Azure Key Vault"
+        KV["Azure Key Vault"] 
+        S1["Secret: DB Credentials"]
+        S2["Secret: API Keys"]
+        S3["Secret: Session Keys"]
+        KV --> S1
+        KV --> S2
+        KV --> S3
+    end
+    
+    subgraph "Access Methods"
+        MI["Managed Identity"]
+        EV["Environment Variables"]
+    end
+    
+    subgraph "Flask Application"
+        APP["Flask App"]
+        CONFIG["app config.py"]
+        APP --> CONFIG
+    end
+    
+    MI --> KV
+    KV --> EV
+    EV --> CONFIG
+    
+    style KV fill:#4050b5,stroke:#333,stroke-width:2px
+    style APP fill:#35a853,stroke:#333,stroke-width:2px
+```
+
 ## Setting Up Azure Key Vault
 
 ### 1. Create a Key Vault
@@ -45,8 +76,6 @@ az keyvault secret set --vault-name flask-fugue-kv --name "DB-PASSWORD" --value 
 ```
 
 ## Accessing Key Vault from Flask
-
-There are two primary methods to access Key Vault from your Flask application:
 
 ### Method 1: Environment Variables (Recommended for App Service)
 
@@ -106,6 +135,28 @@ For more advanced scenarios, your app can access Key Vault directly:
    # Grant access to Key Vault
    az keyvault set-policy --name flask-fugue-kv --object-id $PRINCIPAL_ID --secret-permissions get list
    ```
+
+The authentication flow using Managed Identity follows this sequence:
+
+```mermaid
+sequenceDiagram
+    participant Flask as Flask Application
+    participant MSAL as Azure Identity Library
+    participant IMDS as Instance Metadata Service
+    participant AAD as Azure AD
+    participant KV as Azure Key Vault
+
+    Flask->>MSAL: Request token
+    MSAL->>IMDS: Get managed identity token
+    IMDS->>AAD: Validate identity
+    AAD-->>IMDS: Return token
+    IMDS-->>MSAL: Return token
+    MSAL-->>Flask: Return token
+    Flask->>KV: Request secret with token
+    KV->>AAD: Validate token
+    AAD-->>KV: Confirm permission
+    KV-->>Flask: Return secret value
+```
 
 ## Best Practices
 

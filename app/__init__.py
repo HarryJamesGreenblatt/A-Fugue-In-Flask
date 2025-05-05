@@ -23,6 +23,8 @@ from flask_login import LoginManager
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy import text  # Import text construct
 import time
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -325,5 +327,17 @@ def create_app(config_object='config.active_config'):
     def unhandled_exception(e):
         logger.error(f"Unhandled exception: {e}")
         return "Internal Server Error", 500
+
+    # Initialize Azure Key Vault client
+    if app.config.get('KEY_VAULT_URI'):
+        try:
+            credential = DefaultAzureCredential()
+            secret_client = SecretClient(vault_url=app.config['KEY_VAULT_URI'], credential=credential)
+            app.config['SECRET_KEY'] = secret_client.get_secret('FLASK-SECRET-KEY').value
+            app.config['DB_USERNAME'] = secret_client.get_secret('DB-USERNAME').value
+            app.config['DB_PASSWORD'] = secret_client.get_secret('DB-PASSWORD').value
+            logger.info("Retrieved secrets from Azure Key Vault")
+        except Exception as e:
+            logger.error(f"Error retrieving secrets from Azure Key Vault: {e}")
         
     return app
