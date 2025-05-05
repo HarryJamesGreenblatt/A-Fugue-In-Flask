@@ -17,6 +17,9 @@ sqlalchemy-pytds==0.3.2  # Alternative to sqlalchemy-pyodbc-azure for SQL Server
 azure-identity==1.14.0  # DefaultAzureCredential for authentication
 azure-keyvault-secrets==4.7.0  # Azure Key Vault Secrets client
 
+# Diagram generation for architecture visualization
+diagrams==0.23.4  # Python library to draw cloud system architecture diagrams as code
+
 # Removed all Azure CLI and identity packages to resolve deployment conflicts.
 # These packages aren't needed for the Flask application to run on Azure App Service.
 # GitHub Actions handles the deployment process without requiring these dependencies.

@@ -1,0 +1,151 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Application Factory Pattern with Blueprint Modularity</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .diagram-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 5px;
+        }
+        .node {
+            border: 1px solid #666;
+            border-radius: 5px;
+            padding: 10px 15px;
+            margin: 10px 0;
+            background-color: #f8f9fa;
+            text-align: center;
+        }
+        .factory {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        .extensions {
+            background-color: #6c757d;
+            color: white;
+        }
+        .blueprints {
+            background-color: #dc3545;
+            color: white;
+        }
+        .models {
+            background-color: #28a745;
+            color: white;
+        }
+        .templates {
+            background-color: #ffc107;
+            color: black;
+        }
+        .azure {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .cluster {
+            border: 1px dashed #aaa;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 15px 0;
+        }
+        .cluster-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #555;
+        }
+        .arrow {
+            text-align: center;
+            font-size: 24px;
+            color: #666;
+            margin: 5px 0;
+        }
+        .entry-point {
+            background-color: #f8f9fa;
+            border: 2px solid #343a40;
+        }
+    </style>
+</head>
+<body>
+    <div class="diagram-container">
+        <h2 style="text-align: center;">Application Factory Pattern with Blueprint Modularity</h2>
+        
+        <!-- Entry Point -->
+        <div class="node entry-point">app.py - Entry Point</div>
+        
+        <div class="arrow">↓</div>
+        
+        <!-- Application Factory -->
+        <div class="node factory">create_app - Application Factory</div>
+        
+        <div class="arrow">↓</div>
+        
+        <!-- Main Components -->
+        <div style="display: flex; justify-content: space-between;">
+            <!-- Left Column -->
+            <div style="flex: 1; margin-right: 10px;">
+                <div class="cluster">
+                    <div class="cluster-title">Configuration</div>
+                    <div class="node">config.py - Environment Settings</div>
+                </div>
+            </div>
+            
+            <!-- Middle Column -->
+            <div style="flex: 1; margin-right: 10px;">
+                <div class="cluster">
+                    <div class="cluster-title">Extensions</div>
+                    <div class="node">SQLAlchemy - Database ORM</div>
+                    <div class="node">Flask-Login - Authentication</div>
+                    <div class="node">Flask-Migrate - Migrations</div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="cluster">
+                    <div class="cluster-title">Models</div>
+                    <div class="node">User Model</div>
+                </div>
+            </div>
+            
+            <!-- Right Column -->
+            <div style="flex: 1;">
+                <div class="cluster">
+                    <div class="cluster-title">Blueprints</div>
+                    <div class="node">Main Blueprint</div>
+                    <div class="node">Auth Blueprint</div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="cluster">
+                    <div class="cluster-title">Templates</div>
+                    <div class="node">main/*.html</div>
+                    <div class="node">auth/*.html</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="arrow">↓</div>
+        
+        <!-- Azure Deployment -->
+        <div class="cluster">
+            <div class="cluster-title">Azure Deployment</div>
+            <div style="display: flex; justify-content: space-between;">
+                <div class="node azure" style="flex: 1; margin-right: 5px;">Azure App Service</div>
+                <div class="node azure" style="flex: 1; margin-right: 5px;">Azure SQL Database</div>
+                <div class="node azure" style="flex: 1;">Azure Key Vault</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+    
