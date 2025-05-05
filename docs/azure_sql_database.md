@@ -2,6 +2,67 @@
 
 This document provides guidance on integrating Azure SQL Database with your Flask application.
 
+## Database Connection Architecture
+
+The application uses a tiered approach to database connection management with fallbacks:
+
+```mermaid
+flowchart TD
+    Start[Application Start] --> CheckEnv{Check Environment}
+    
+    CheckEnv -->|FLASK_CONFIG=azure| Azure[Azure Config]
+    CheckEnv -->|FLASK_CONFIG=production| Prod[Production Config]
+    CheckEnv -->|FLASK_CONFIG=development| Dev[Development Config]
+    CheckEnv -->|FLASK_CONFIG=testing| Test[Testing Config]
+    
+    subgraph "Azure/Production Path"
+        Azure --> CheckKV{Check Key Vault}
+        Prod --> CheckKV
+        CheckKV -->|Success| KVCreds[Get Credentials from Key Vault]
+        CheckKV -->|Failure| CheckTemplate{Check TEMPLATE_DATABASE_URI}
+        
+        KVCreds --> BuildConnStr[Build SQL Connection String]
+        
+        CheckTemplate -->|Exists| UseTemplate[Use Template URI]
+        CheckTemplate -->|Not Found| CheckDBVars{Check DB_* Variables}
+        
+        CheckDBVars -->|All Present| BuildFromVars[Build Connection String from Variables]
+        CheckDBVars -->|Missing Variables| SQLiteFallback[SQLite Fallback]
+    end
+    
+    subgraph "Development Path"
+        Dev --> CheckDevDBURI{Check DEV_DATABASE_URI}
+        CheckDevDBURI -->|Exists| UseDevURI[Use DEV_DATABASE_URI]
+        CheckDevDBURI -->|Not Found| DevSQLite[SQLite Development DB]
+    end
+    
+    subgraph "Testing Path"
+        Test --> CheckTestDBURI{Check TEST_DATABASE_URI}
+        CheckTestDBURI -->|Exists| UseTestURI[Use TEST_DATABASE_URI]
+        CheckTestDBURI -->|Not Found| TestSQLite[SQLite Testing DB]
+    end
+    
+    BuildConnStr --> TestConn{Test Connection}
+    UseTemplate --> TestConn
+    BuildFromVars --> TestConn
+    UseDevURI --> TestConn
+    DevSQLite --> TestConn
+    UseTestURI --> TestConn
+    TestSQLite --> TestConn
+    SQLiteFallback --> TestConn
+    
+    TestConn -->|Success| AppStart[Start Application]
+    TestConn -->|Failure| RetryHandler[Connection Retry Handler]
+    RetryHandler -->|Max Retries Reached| FailSafe[Failsafe Handler]
+    RetryHandler -->|Retry Success| AppStart
+    
+    style Azure fill:#0078D4,color:#fff,stroke:#333,stroke-width:2px
+    style Prod fill:#0078D4,color:#fff,stroke:#333,stroke-width:2px
+    style KVCreds fill:#5BB974,color:#000,stroke:#333,stroke-width:2px
+    style SQLiteFallback fill:#FBBC04,color:#000,stroke:#333,stroke-width:2px
+    style RetryHandler fill:#FBBC04,color:#000,stroke:#333,stroke-width:2px
+```
+
 ## Why Azure SQL Database
 
 For our Azure deployment, we chose Azure SQL Database for several reasons:
@@ -122,9 +183,7 @@ Ensure your database columns are large enough to store modern password hashes:
 ```python
 # Model definition example with sufficient column size for modern hash algorithms
 class User(UserMixin, db.Model):
-    # ...existing code...
     password_hash = db.Column(db.String(256), nullable=False)  # 256 characters for modern hash algorithms
-    # ...existing code...
 ```
 
 ## Security Best Practices
@@ -248,80 +307,7 @@ The Basic tier (~$5/month) is suitable for development and light production work
    - SQL Server has stricter type enforcement; review model definitions
    - Strings typically need explicit length declarations
 
-##### 3. Efficient Querying
-
-Azure SQL Database performs best with optimized queries:
-
-- Use indexing on commonly queried columns
-- Avoid N+1 query patterns by using eager loading
-- For large result sets, use pagination
-
-## Security Considerations
-
-### 1. Protect Connection Strings
-
-Never hard-code connection strings:
-
-- Store them in Azure Key Vault
-- Set them as environment variables in App Service
-- Use Azure Managed Identities for database access when possible
-
-### 2. Restrict Database Access
-
-- Use the firewall rules to limit access to necessary IP ranges
-- Create database users with minimum required permissions
-- Enable auditing and threat detection in Azure Portal
-
-### 3. Enable Advanced Security Features
-
-For production environments, consider enabling Advanced Data Security and threat protection.
-
-## Monitoring and Performance
-
-### 1. Enable Query Insights
-
-Enable Query Performance Insight to monitor and optimize query performance.
-
-### 2. Add Index Recommendations
-
-Azure SQL Database provides automatic index recommendations based on your query patterns:
-
-1. In Azure Portal, navigate to your database
-2. Select "Performance recommendations" 
-3. Review and apply suggested indexes
-
-## Cost Management
-
-The Basic tier (~$5/month) is suitable for development and light production workloads. Monitor usage and consider:
-
-- Scaling up during high-traffic periods
-- Implementing caching strategies to reduce database load
-- Using elastic pools if you have multiple databases with complementary usage patterns
-
-## Troubleshooting Common Issues
-
-### Connection Problems
-
-1. **Error: "Cannot open server X requested by the login"**
-   - Ensure the Azure SQL Server firewall allows Azure services (0.0.0.0)
-
-2. **Error: "TCP Provider: The specified DSN contains an architecture mismatch"**
-   - Make sure you have the correct ODBC driver installed
-
-3. **Timeout Errors**
-   - Increase connection timeout in your connection string
-
-### Migration Issues
-
-1. **Error: "Table X already exists"**
-   - Check if your migration scripts are idempotent
-   - Use `db.engine.dialect.has_table()` to check existence before creating
-
-2. **Data Type Compatibility**
-   - SQL Server has stricter type enforcement; review model definitions
-   - Strings typically need explicit length declarations
-
- Further Reading
+Further Reading
 
 - [Azure SQL Database Documentation](https://docs.microsoft.com/en-us/azure/azure-sql/)
 - [SQLAlchemy SQL Server Dialect](https://docs.sqlalchemy.org/en/14/dialects/mssql.html)

@@ -1,6 +1,43 @@
 # Deploying A Fugue In Flask to Azure
 
-This guide walks you through deploying your Flask application to Microsoft Azure App Service with an Azure SQL Database backend.
+This guide provides step-by-step instructions for deploying the Flask application to Azure.
+
+## Architecture Overview
+
+The application uses the following Azure resources in a secure, scalable architecture:
+
+```mermaid
+flowchart TD
+    subgraph "Client Side"
+        Browser["Web Browser"]
+    end
+    
+    subgraph "Azure Resources"
+        AppService["Azure App Service"]
+        SQLServer["Azure SQL Server"]
+        KeyVault["Azure Key Vault"]
+        AppInsights["Application Insights"]
+        
+        subgraph "Identity & Security"
+            ManagedId["Managed Identity"]
+            RBAC["Role-Based Access"]
+        end
+    end
+    
+    Browser <--> AppService
+    AppService --> SQLServer
+    AppService --> AppInsights
+    
+    ManagedId --> KeyVault
+    AppService --> ManagedId
+    KeyVault --> SQLServer
+    RBAC --> KeyVault
+    
+    style AppService fill:#0078D4,stroke:#333,stroke-width:2px,color:#fff
+    style SQLServer fill:#0078D4,stroke:#333,stroke-width:2px,color:#fff
+    style KeyVault fill:#5BB974,stroke:#333,stroke-width:2px,color:#fff
+    style AppInsights fill:#0078D4,stroke:#333,stroke-width:2px,color:#fff
+```
 
 ## Why Azure App Service?
 
