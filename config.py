@@ -32,8 +32,8 @@ class Config:
     allowing for a DRY (Don't Repeat Yourself) approach to configuration.
     """
     # Secret key used for cryptographic functions (session, CSRF protection, etc.)
-    SECRET_KEY = None
-    
+    # SECRET_KEY is defined after the generate_dev_key method to avoid reference before definition
+        
     # SQLAlchemy setting to disable modification tracking for better performance
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
@@ -58,6 +58,18 @@ class Config:
     # Azure Key Vault configuration
     KEY_VAULT_NAME = os.environ.get('KEY_VAULT_NAME')
     KEY_VAULT_URI = f"https://{KEY_VAULT_NAME}.vault.azure.net" if KEY_VAULT_NAME else None
+
+    @staticmethod
+    def generate_dev_key():
+        """
+        Generate a secure random key for development use
+        """
+        import secrets
+        return secrets.token_hex(32)  # 32 bytes = 256 bits
+
+    # Secret key used for cryptographic functions (session, CSRF protection, etc.)
+    # Priority: 1. Environment variable 2. Generated secure random key
+    SECRET_KEY = os.environ.get('SECRET_KEY') or generate_dev_key()
 
     @staticmethod
     def build_mssql_uri(server, database, username, password):
