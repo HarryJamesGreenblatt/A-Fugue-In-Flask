@@ -137,47 +137,50 @@ After initialization, a default admin user is created:
 ### Project Structure
 
 ```
-app.py                  # Application entry point
-config.py               # Configuration settings for different environments
-appsettings.json        # Database connection settings
-requirements.txt        # Python dependencies
-.env                    # Local environment variables (not in version control)
-gunicorn.conf.py        # Gunicorn configuration for production
-startup_azure.sh        # Azure startup script
-
-├── .github/            # GitHub configuration
-│   └── workflows/      # GitHub Actions workflows
-│       └── azure-deploy.yml  # Azure deployment workflow
-
-├── app/                # Main application package
-│   ├── __init__.py     # Application factory
-│   ├── models/         # Database models
+A-Fugue-In-Flask/
+│
+├── app.py                          # Application entry point
+├── config.py                       # Environment-specific configurations
+├── requirements.txt                # Python dependencies
+├── startup_azure.sh                # Azure deployment startup script
+├── gunicorn.conf.py                # Production WSGI server config
+├── appsettings.json                # Database connection settings
+│
+├── app/                            # Main application package
+│   ├── __init__.py                 # Application factory
+│   ├── models/                     # Database models
 │   │   ├── __init__.py
-│   │   └── user.py     # User authentication model
-│   ├── routes/         # Blueprint routes
+│   │   └── user.py                 # User authentication model
+│   │
+│   ├── routes/                     # Blueprint route definitions
 │   │   ├── __init__.py
-│   │   ├── auth.py     # Authentication routes
-│   │   └── main.py     # Main application routes
-│   ├── templates/      # Jinja2 templates
-│   │   ├── base.html   # Base template with layout
-│   │   ├── auth/       # Authentication templates
-│   │   │   ├── login.html
-│   │   │   └── register.html
-│   │   └── main/       # Main route templates
-│   │       ├── about.html
-│   │       └── index.html
-│   ├── static/         # Static files
-│   │   ├── css/        # CSS stylesheets
-│   │   │   └── style.css
-│   │   └── img/        # Images
-│   │       └── flask-logo.png
-│   ├── forms/          # Form classes
+│   │   ├── auth.py                 # Authentication routes
+│   │   └── main.py                 # Main application routes
+│   │
+│   ├── templates/                  # Jinja2 templates
+│   │   ├── base.html               # Base template with layout
+│   │   ├── auth/
+│   │   │   ├── login.html          # Login form template
+│   │   │   └── register.html       # Registration form template
+│   │   │
+│   │   └── main/
+│   │       ├── about.html          # About page template
+│   │       └── index.html          # Homepage template
+│   │
+│   ├── static/                     # Static assets
+│   │   ├── css/
+│   │   │   └── style.css           # Custom stylesheets
+│   │   └── img/
+│   │       └── flask-logo.png      # Logo image
+│   │
+│   ├── forms/                      # WTForms form classes
 │   │   ├── __init__.py
-│   │   └── auth.py     # Authentication forms
-│   └── utils/          # Utility functions
+│   │   └── auth.py                 # Authentication forms
+│   │
+│   └── utils/                      # Helper functions
 │       └── __init__.py
-
-├── docs/               # Enhanced documentation with Mermaid diagrams
+│
+├── docs/                           # Enhanced documentation with Mermaid diagrams
 │   ├── architecture.md             # Application architecture with component diagrams
 │   ├── authentication.md           # Authentication system with sequence diagrams
 │   ├── azure_deployment.md         # Azure deployment with architecture diagrams
@@ -187,35 +190,89 @@ startup_azure.sh        # Azure startup script
 │   ├── github_actions_azure.md     # GitHub Actions CI/CD setup
 │   ├── setup.md                    # Setup instructions
 │   └── web_architecture.md         # Web architecture diagrams
-
-├── infra/              # Infrastructure as Code
-│   ├── main.bicep      # Main Bicep template for Azure resources
-│   └── sql-server.bicep # SQL Server specific resources
-
-├── instance/           # Instance-specific files
-│   └── dev.db          # SQLite development database
-
-├── migrations/         # Database migrations
-│   ├── versions/       # Migration versions
+│
+├── infra/                          # Azure Infrastructure as Code
+│   ├── main.bicep                  # Main Bicep template
+│   └── sql-server.bicep            # SQL Server resource definition
+│
+├── instance/                       # Instance-specific files
+│   └── dev.db                      # SQLite development database
+│
+├── migrations/                     # Database migrations
+│   ├── versions/                   # Migration versions
 │   │   ├── 7f23e04989ee_increase_password_hash_column_length_to_.py
 │   │   └── 9f4a4f0691fe_initial_migration.py
-│   ├── alembic.ini     # Alembic configuration
-│   ├── env.py          # Migration environment
-│   └── README          # Migration instructions
-
-└── scripts/            # Utility scripts
-    ├── advanced_connection_test.py  # In-depth database connection testing
-    ├── azure_sql_fix.py            # Azure SQL connectivity diagnostic and fix
-    ├── check_db_connection.py      # Database connection checker
-    ├── create_tables.py            # Table creation helper
-    ├── direct_db_test.py           # Direct database initialization
-    ├── init_db.py                  # Local database initialization
-    ├── run_with_diagnostics.py     # Run app with enhanced logging
-    ├── test_appsettings.py         # Test appsettings.json configuration
-    ├── test_db_connection.py       # Test database connections
-    ├── update_schema.py            # Schema update utility
-    └── view_local_db.py            # SQLite database inspection tool
+│   │
+│   ├── alembic.ini                 # Alembic configuration
+│   ├── env.py                      # Migration environment
+│   └── README                      # Migration instructions
+│
+├── scripts/                        # Utility scripts
+│   ├── advanced_connection_test.py # In-depth connection testing
+│   ├── azure_sql_fix.py            # Azure SQL connectivity troubleshooter
+│   ├── check_db_connection.py      # Database connection checker 
+│   ├── create_tables.py            # Table creation helper
+│   ├── direct_db_test.py           # Direct database initialization
+│   ├── init_db.py                  # Local database initialization
+│   ├── run_with_diagnostics.py     # Enhanced logging runner
+│   ├── test_appsettings.py         # Configuration testing
+│   ├── test_db_connection.py       # Database connectivity testing
+│   ├── update_schema.py            # Schema update utility
+│   └── view_local_db.py            # SQLite inspection tool
+│
+├── tests/                          # Test suite
+│   └── ...                         # Test modules
+│
+└── .github/                        # GitHub configuration
+    └── workflows/                  # GitHub Actions workflows
+        └── azure-deploy.yml        # Azure deployment workflow
 ```
+
+#### Core Application
+
+- `app.py` - Application entry point
+- `config.py` - Environment configuration (development, production, azure)
+- `requirements.txt` - Python dependencies
+- `startup_azure.sh` - Azure-specific startup script
+
+#### Azure Integration
+
+- `.github/workflows/azure-deploy.yml` - CI/CD pipeline for Azure App Service
+- `infra/` - Infrastructure as Code
+  - `main.bicep` - Main Azure resource template
+  - `sql-server.bicep` - SQL Server resource definition
+
+#### Application Modules
+
+**Core Flask App (`app/`):**
+- `__init__.py` - Application factory pattern implementation
+- `models/` - SQLAlchemy database models
+- `routes/` - Blueprint route definitions
+- `forms/` - WTForms form classes
+- `templates/` - Jinja2 HTML templates
+- `static/` - CSS, JavaScript, and images
+- `utils/` - Helper functions
+
+**Database Management:**
+- `migrations/` - Alembic/Flask-Migrate database migrations
+- `instance/` - SQLite development database location
+
+**Diagnostic Scripts (`scripts/`):**
+- Database utilities:
+  - `view_local_db.py` - SQLite database inspection tool
+  - `check_db_connection.py` - Connection verification
+- Azure SQL helpers:
+  - `azure_sql_fix.py` - Azure SQL connectivity troubleshooter
+  - `advanced_connection_test.py` - Connection testing with detailed diagnostics
+- Application runners:
+  - `run_with_diagnostics.py` - Enhanced logging for development
+
+**Documentation (`docs/`):**
+- `architecture.md` - Application architecture with component diagrams  
+- `authentication.md` - Authentication system with sequence diagrams
+- `azure_deployment.md` - Azure deployment with architecture diagrams
+- `azure_key_vault.md` - Key Vault integration with flow diagrams
+- `azure_sql_database.md` - SQL Database with connection flow diagrams
 
 ## Documentation
 
