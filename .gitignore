@@ -48,3 +48,7 @@ migrations/versions/*.pyc
 # Azure deployment
 *.publishsettings
 *.azure
+
+
+#.vscode
+.vs

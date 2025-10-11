@@ -83,7 +83,7 @@ flowchart TD
      - Resource Group: Create new or use existing
      - Name: Unique app name (e.g., fugue-in-flask)
      - Publish: Code
-     - Runtime stack: Python 3.9 or later
+     - Runtime stack: Python 3.13 or later
      - Operating System: Linux (recommended)
      - Region: Choose a region close to your users
    - Click "Review + create" and then "Create"
@@ -140,7 +140,7 @@ sequenceDiagram
 
 4. **Create a Web App**:
    ```bash
-   az webapp create --resource-group myResourceGroup --plan myAppServicePlan --name fugue-in-flask --runtime "PYTHON:3.9"
+   az webapp create --resource-group myResourceGroup --plan myAppServicePlan --name fugue-in-flask --runtime "PYTHON:3.13"
    ```
 
 5. **Configure the Web App**:
@@ -206,7 +206,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.9'
+          python-version: '3.13'
           
       - name: Install dependencies
         run: |
@@ -244,7 +244,7 @@ While Linux is recommended for the reasons outlined above, if you have specific 
    <configuration>
      <system.webServer>
        <handlers>
-         <add name="PythonHandler" path="*" verb="*" modules="FastCgiModule" scriptProcessor="D:\Python39\python.exe|D:\Python39\Lib\site-packages\wfastcgi.py" resourceType="Unspecified" requireAccess="Script" />
+         <add name="PythonHandler" path="*" verb="*" modules="FastCgiModule" scriptProcessor="D:\Python313\python.exe|D:\Python313\Lib\site-packages\wfastcgi.py" resourceType="Unspecified" requireAccess="Script" />
        </handlers>
        <appSettings>
          <add key="PYTHONPATH" value="D:\home\site\wwwroot" />
@@ -257,7 +257,7 @@ While Linux is recommended for the reasons outlined above, if you have specific 
 
 3. **Azure CLI commands**:
    - Create App Service Plan: `az appservice plan create --name myAppServicePlan --resource-group myResourceGroup --sku B1`
-   - Create Web App: `az webapp create --resource-group myResourceGroup --plan myAppServicePlan --name fugue-in-flask --runtime "python:3.9"`
+   - Create Web App: `az webapp create --resource-group myResourceGroup --plan myAppServicePlan --name fugue-in-flask --runtime "python:3.13"`
 
 Consider using Windows deployment only if you have specific Windows dependencies or integration requirements that cannot be accommodated in a Linux environment.
 
