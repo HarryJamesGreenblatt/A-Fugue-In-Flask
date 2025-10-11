@@ -1,17 +1,17 @@
 # A Fugue In Flask
 
-A comprehensive Flask application template with Azure deployment capabilities.
+A comprehensive Flask application template with Azure SQL Database integration and Azure deployment capabilities.
 
 ## Overview
 
-"A Fugue In Flask" provides a production-ready Flask application template that follows best practices for organization, configuration, and deployment. It serves as a solid foundation for building web applications that can be easily deployed to Azure.
+"A Fugue In Flask" provides a production-ready Flask application template that follows best practices for organization, configuration, and deployment. It serves as a solid foundation for building web applications that can be easily deployed to Azure with Azure SQL Database connectivity.
 
 ## Features
 
 - Modular application structure using Flask blueprints
 - Environment-specific configuration management
-- Database integration with SQLAlchemy
-- Authentication system
+- Azure SQL Database integration with SQLAlchemy and pyodbc
+- Authentication system with secure password hashing
 - Azure deployment setup with CI/CD
 - Testing framework
 - Comprehensive documentation
@@ -23,6 +23,7 @@ A comprehensive Flask application template with Azure deployment capabilities.
 - Python 3.9 or higher
 - pip (Python package manager)
 - Git
+- Microsoft ODBC Driver for SQL Server
 
 ### Installation
 
@@ -32,12 +33,30 @@ A comprehensive Flask application template with Azure deployment capabilities.
    cd A-Fugue-In-Flask
    ```
 
-2. Create a virtual environment
+2. Install the Microsoft ODBC Driver for SQL Server
+   - Windows: [Download and install ODBC Driver 17](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server)
+   - macOS: 
+     ```
+     brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
+     brew update
+     brew install msodbcsql17
+     ```
+   - Linux (Ubuntu):
+     ```
+     sudo su
+     curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+     curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list > /etc/apt/sources.list.d/mssql-release.list
+     exit
+     sudo apt-get update
+     sudo ACCEPT_EULA=Y apt-get install -y msodbcsql17
+     ```
+
+3. Create a virtual environment
    ```
    python -m venv venv
    ```
 
-3. Activate the virtual environment
+4. Activate the virtual environment
    - Windows: 
      ```
      venv\Scripts\activate
@@ -47,32 +66,63 @@ A comprehensive Flask application template with Azure deployment capabilities.
      source venv/bin/activate
      ```
 
-4. Install dependencies
+5. Install dependencies
    ```
    pip install -r requirements.txt
    ```
 
-5. Set up environment variables by creating a `.env` file (or copy from `.env.example`)
-   ```
-   copy .env.example .env
-   ```
+6. Set up Azure Key Vault and Managed Identity
+   - Create a Key Vault
+     ```bash
+     az keyvault create --name flask-fugue-kv --resource-group flaskapp-rg --location westus
+     ```
 
-6. Initialize the database
-   - Windows: Run the batch file
+   - Add secrets to Key Vault
+     ```bash
+     SECRET_KEY=$(openssl rand -hex 32)
+     az keyvault secret set --vault-name flask-fugue-kv --name "FLASK-SECRET-KEY" --value "$SECRET_KEY"
+     az keyvault secret set --vault-name flask-fugue-kv --name "DB-USERNAME" --value "sqladmin"
+     az keyvault secret set --vault-name flask-fugue-kv --name "DB-PASSWORD" --value "YourStrongPassword123!"
      ```
-     init_db.bat
+
+   - Enable Managed Identity for your Web App
+     ```bash
+     az webapp identity assign --name flask-fugue-app --resource-group flaskapp-rg
+     PRINCIPAL_ID=$(az webapp identity show --name flask-fugue-app --resource-group flaskapp-rg --query principalId -o tsv)
+     az keyvault set-policy --name flask-fugue-kv --object-id $PRINCIPAL_ID --secret-permissions get list
      ```
-   - macOS/Linux: Run the Python script directly
+
+7. Initialize the database
+   - For Azure SQL Database:
+     ```
+     python -m scripts.direct_db_test
+     ```
+   - For local SQLite development:
      ```
      python -m scripts.init_db
      ```
 
-7. Run the application
+8. Run the Azure SQL connection fix script:
    ```
-   flask run
+   python -m scripts.azure_sql_fix
    ```
 
-8. Access the application at [flask-fugue-app.azurewebsites.net](https://flask-fugue-app.azurewebsites.net)
+9. Run the application
+   ```
+   # Set configuration to use Azure SQL
+   set FLASK_CONFIG=azure  # Windows
+   export FLASK_CONFIG=azure  # macOS/Linux
+   
+   # Run the application
+   flask run
+   ```
+   
+   For enhanced diagnostics:
+   ```
+   python -m scripts.run_with_diagnostics
+   ```
+
+10. Access the application at http://flask-fugue-app.azurewebsites.net/
 
 ### Default Login
 
@@ -87,47 +137,177 @@ After initialization, a default admin user is created:
 ### Project Structure
 
 ```
-app.py                  # Application entry point
-config.py               # Configuration settings
-app/                    # Application package
-  ├── __init__.py       # Application factory
-  ├── models/           # Database models
-  ├── routes/           # Blueprint routes
-  ├── templates/        # Jinja2 templates
-  ├── static/           # Static files
-  ├── forms/            # Form classes
-  └── utils/            # Utility functions
+A-Fugue-In-Flask/
+│
+├── app.py                          # Application entry point
+├── config.py                       # Environment-specific configurations
+├── requirements.txt                # Python dependencies
+├── startup_azure.sh                # Azure deployment startup script
+├── gunicorn.conf.py                # Production WSGI server config
+├── appsettings.json                # Database connection settings
+│
+├── app/                            # Main application package
+│   ├── __init__.py                 # Application factory
+│   ├── models/                     # Database models
+│   │   ├── __init__.py
+│   │   └── user.py                 # User authentication model
+│   │
+│   ├── routes/                     # Blueprint route definitions
+│   │   ├── __init__.py
+│   │   ├── auth.py                 # Authentication routes
+│   │   └── main.py                 # Main application routes
+│   │
+│   ├── templates/                  # Jinja2 templates
+│   │   ├── base.html               # Base template with layout
+│   │   ├── auth/
+│   │   │   ├── login.html          # Login form template
+│   │   │   └── register.html       # Registration form template
+│   │   │
+│   │   └── main/
+│   │       ├── about.html          # About page template
+│   │       └── index.html          # Homepage template
+│   │
+│   ├── static/                     # Static assets
+│   │   ├── css/
+│   │   │   └── style.css           # Custom stylesheets
+│   │   └── img/
+│   │       └── flask-logo.png      # Logo image
+│   │
+│   ├── forms/                      # WTForms form classes
+│   │   ├── __init__.py
+│   │   └── auth.py                 # Authentication forms
+│   │
+│   └── utils/                      # Helper functions
+│       └── __init__.py
+│
+├── docs/                           # Enhanced documentation with Mermaid diagrams
+│   ├── architecture.md             # Application architecture with component diagrams
+│   ├── authentication.md           # Authentication system with sequence diagrams
+│   ├── azure_deployment.md         # Azure deployment with architecture diagrams
+│   ├── azure_key_vault.md          # Key Vault integration with flow diagrams
+│   ├── azure_sql_database.md       # SQL Database with connection flow diagrams
+│   ├── deployment.md               # General deployment instructions
+│   ├── github_actions_azure.md     # GitHub Actions CI/CD setup
+│   ├── setup.md                    # Setup instructions
+│   └── web_architecture.md         # Web architecture diagrams
+│
+├── infra/                          # Azure Infrastructure as Code
+│   ├── main.bicep                  # Main Bicep template
+│   └── sql-server.bicep            # SQL Server resource definition
+│
+├── instance/                       # Instance-specific files
+│   └── dev.db                      # SQLite development database
+│
+├── migrations/                     # Database migrations
+│   ├── versions/                   # Migration versions
+│   │   ├── 7f23e04989ee_increase_password_hash_column_length_to_.py
+│   │   └── 9f4a4f0691fe_initial_migration.py
+│   │
+│   ├── alembic.ini                 # Alembic configuration
+│   ├── env.py                      # Migration environment
+│   └── README                      # Migration instructions
+│
+├── scripts/                        # Utility scripts
+│   ├── advanced_connection_test.py # In-depth connection testing
+│   ├── azure_sql_fix.py            # Azure SQL connectivity troubleshooter
+│   ├── check_db_connection.py      # Database connection checker 
+│   ├── create_tables.py            # Table creation helper
+│   ├── direct_db_test.py           # Direct database initialization
+│   ├── init_db.py                  # Local database initialization
+│   ├── run_with_diagnostics.py     # Enhanced logging runner
+│   ├── test_appsettings.py         # Configuration testing
+│   ├── test_db_connection.py       # Database connectivity testing
+│   ├── update_schema.py            # Schema update utility
+│   └── view_local_db.py            # SQLite inspection tool
+│
+├── tests/                          # Test suite
+│   └── ...                         # Test modules
+│
+└── .github/                        # GitHub configuration
+    └── workflows/                  # GitHub Actions workflows
+        └── azure-deploy.yml        # Azure deployment workflow
 ```
 
-### Environment Variables
+#### Core Application
 
-Key environment variables (defined in `.env`):
-- `FLASK_APP`: Main application module (default: app.py)
-- `FLASK_CONFIG`: Configuration environment (development, testing, production)
-- `SECRET_KEY`: Secret key for session security
-- `DEV_DATABASE_URI`: Database URI for development
-- `DATABASE_URI`: Database URI for production
+- `app.py` - Application entry point
+- `config.py` - Environment configuration (development, production, azure)
+- `requirements.txt` - Python dependencies
+- `startup_azure.sh` - Azure-specific startup script
+
+#### Azure Integration
+
+- `.github/workflows/azure-deploy.yml` - CI/CD pipeline for Azure App Service
+- `infra/` - Infrastructure as Code
+  - `main.bicep` - Main Azure resource template
+  - `sql-server.bicep` - SQL Server resource definition
+
+#### Application Modules
+
+**Core Flask App (`app/`):**
+- `__init__.py` - Application factory pattern implementation
+- `models/` - SQLAlchemy database models
+- `routes/` - Blueprint route definitions
+- `forms/` - WTForms form classes
+- `templates/` - Jinja2 HTML templates
+- `static/` - CSS, JavaScript, and images
+- `utils/` - Helper functions
+
+**Database Management:**
+- `migrations/` - Alembic/Flask-Migrate database migrations
+- `instance/` - SQLite development database location
+
+**Diagnostic Scripts (`scripts/`):**
+- Database utilities:
+  - `view_local_db.py` - SQLite database inspection tool
+  - `check_db_connection.py` - Connection verification
+- Azure SQL helpers:
+  - `azure_sql_fix.py` - Azure SQL connectivity troubleshooter
+  - `advanced_connection_test.py` - Connection testing with detailed diagnostics
+- Application runners:
+  - `run_with_diagnostics.py` - Enhanced logging for development
+
+**Documentation (`docs/`):**
+- `architecture.md` - Application architecture with component diagrams  
+- `authentication.md` - Authentication system with sequence diagrams
+- `azure_deployment.md` - Azure deployment with architecture diagrams
+- `azure_key_vault.md` - Key Vault integration with flow diagrams
+- `azure_sql_database.md` - SQL Database with connection flow diagrams
 
 ## Documentation
 
-### Architecture Documentation
+The project includes comprehensive documentation with visualizations using Mermaid diagrams:
 
-For detailed documentation about the application architecture and implementation:
+### Application Documentation
 
-- [Architecture Documentation](./docs/architecture.md) - Comprehensive overview of application structure and patterns
-- [Web Architecture](./docs/web_architecture.md) - Details about the web application architecture
-- [Authentication](./docs/authentication.md) - Authentication system implementation details
-- [Setup Guide](./docs/setup.md) - Detailed setup instructions for local development
+- [Architecture Overview](./docs/architecture.md) - Detailed application architecture with component diagrams
+- [Authentication System](./docs/authentication.md) - Authentication flow with sequence diagrams
+- [Web Architecture](./docs/web_architecture.md) - Web application architecture and patterns
+- [Setup Guide](./docs/setup.md) - Local development setup instructions
 
-### Azure Deployment Documentation
+### Azure Integration Documentation
 
-We provide extensive documentation for deploying to Azure:
+- [Azure Deployment Guide](./docs/azure_deployment.md) - Complete deployment instructions with architecture diagrams
+- [Azure Key Vault Integration](./docs/azure_key_vault.md) - Secret management with flow diagrams
+- [Azure SQL Database Integration](./docs/azure_sql_database.md) - Database connection flow diagrams
+- [GitHub Actions CI/CD](./docs/github_actions_azure.md) - Continuous deployment pipeline
 
-- [Azure Deployment Guide](./docs/azure_deployment.md) - Complete step-by-step instructions for deploying to Azure
-- [Azure Key Vault Integration](./docs/azure_key_vault.md) - Guide for securely managing secrets with Azure Key Vault
-- [GitHub Actions CI/CD](./docs/github_actions_azure.md) - Setting up continuous deployment with GitHub Actions
-- [Azure SQL Database Integration](./docs/azure_sql_database.md) - Connecting your Flask app to Azure SQL Database
-- [PostgreSQL Guide](./docs/postgresql_guide.md) - Alternative PostgreSQL deployment options
+### Database & Utilities
+
+- **Local Database Tools**: Use the SQLite inspection tool for local development:
+  ```
+  python -m scripts.view_local_db
+  ```
+  
+- **Connection Troubleshooting**: For connectivity issues with Azure SQL:
+  ```
+  python -m scripts.advanced_connection_test
+  ```
+
+- **Environment Configuration**: Review proper configuration settings:
+  ```
+  python -m scripts.check_db_connection
+  ```
 
 ## Testing
 
@@ -162,6 +342,16 @@ When deployed, this application uses these Azure resources:
 - **Azure SQL Database**: Database backend (Basic tier, ~$5/month)
 - **Azure Key Vault**: Securely stores application secrets and credentials
 - **GitHub Actions**: Provides CI/CD pipeline integration
+
+## Troubleshooting
+
+If you encounter issues with Azure SQL connectivity:
+
+1. Run the diagnostic script: `python -m scripts.azure_sql_fix`
+2. Check if your IP is in the Azure SQL firewall allowlist
+3. Verify the ODBC driver is installed: `python -c "import pyodbc; print(pyodbc.drivers())"`
+4. Check environment variables in your Azure Key Vault
+5. For schema issues: `python -m scripts.update_schema`
 
 ## License
 

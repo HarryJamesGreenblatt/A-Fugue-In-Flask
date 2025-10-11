@@ -27,8 +27,29 @@ logger = logging.getLogger(__name__)
 def test_connection():
     """Test connection to the database using current configuration"""
     try:
-        # Get database URI from active configuration
-        db_uri = active_config.SQLALCHEMY_DATABASE_URI
+        # Determine which connection string to use based on configuration
+        if active_config.USE_CENTRALIZED_DB:
+            # If using centralized DB, ensure we're using the DATABASE_URI or constructed URI
+            if os.environ.get('DATABASE_URI'):
+                db_uri = os.environ.get('DATABASE_URI')
+                logger.info("Using DATABASE_URI environment variable for centralized database")
+            elif all([os.environ.get(var) for var in ['DB_SERVER', 'DB_NAME', 'DB_USERNAME', 'DB_PASSWORD']]):
+                # Construct connection string from components
+                server = os.environ.get('DB_SERVER')
+                database = os.environ.get('DB_NAME')
+                username = os.environ.get('DB_USERNAME')
+                password = os.environ.get('DB_PASSWORD')
+                logger.info(f"Constructing connection string for {server}/{database}")
+                db_uri = f"mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server&TrustServerCertificate=yes&Encrypt=yes"
+            else:
+                # Fall back to config's URI which may still be SQLite for dev environment
+                db_uri = active_config.SQLALCHEMY_DATABASE_URI
+                logger.info("Using SQLALCHEMY_DATABASE_URI from active config")
+        else:
+            # Not using centralized DB, use standard config URI
+            db_uri = active_config.SQLALCHEMY_DATABASE_URI
+            logger.info("Using standard SQLALCHEMY_DATABASE_URI from config")
+        
         logger.info(f"Database URI from config: {type(db_uri)}")
         
         # Mask password for logging if present
@@ -71,8 +92,14 @@ if __name__ == "__main__":
     logger.info(f"Active config: {active_config.__class__.__name__}")
     logger.info(f"USE_CENTRALIZED_DB: {active_config.USE_CENTRALIZED_DB}")
     logger.info(f"DB_SERVER: {active_config.DB_SERVER}")
-    logger.info(f"TEMPLATE_TYPE: {active_config.TEMPLATE_TYPE}")
     logger.info(f"DB_NAME: {active_config.DB_NAME}")
+    
+    # For Azure configurations, log additional info
+    if hasattr(active_config, 'USE_CENTRALIZED_DB') and active_config.USE_CENTRALIZED_DB:
+        if os.environ.get('TEMPLATE_DATABASE_URI'):
+            logger.info("Using TEMPLATE_DATABASE_URI from environment")
+        elif all([os.environ.get(var) for var in ['DB_SERVER', 'DB_NAME', 'DB_USERNAME']]):
+            logger.info("Using DB_SERVER, DB_NAME and DB_USERNAME environment variables")
     
     # Test the connection
     result = test_connection()

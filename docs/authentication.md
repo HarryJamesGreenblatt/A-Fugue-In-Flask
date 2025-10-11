@@ -11,6 +11,55 @@ The authentication system implements user registration, login, and session manag
 - **SQLAlchemy**: Manages database operations for the User model
 - **Flask-WTF**: Creates and validates authentication forms
 
+## Authentication Flow
+
+The application uses Flask-Login for authentication management. Here's the flow of the authentication process:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Browser
+    participant LoginForm
+    participant Flask
+    participant SQLAlchemy
+    participant KeyVault
+    
+    User->>Browser: Enter credentials
+    Browser->>Flask: POST /auth/login
+    Flask->>LoginForm: Validate form
+    
+    alt Invalid Form Data
+        LoginForm-->>Flask: Validation errors
+        Flask-->>Browser: Re-render with errors
+        Browser-->>User: Display errors
+    else Valid Form Data
+        LoginForm->>Flask: Valid data
+        Flask->>SQLAlchemy: Query user by email
+        SQLAlchemy->>Flask: Return user or None
+        
+        alt User Not Found
+            Flask-->>Browser: Error message
+            Browser-->>User: "Invalid credentials"
+        else User Found
+            Flask->>Flask: Check password hash
+            
+            alt Invalid Password
+                Flask-->>Browser: Error message
+                Browser-->>User: "Invalid credentials"
+            else Valid Password
+                Flask->>Flask: Create user session
+                Flask->>Flask: Set remember cookie (if selected)
+                Flask->>Browser: Redirect to next page
+                Browser->>User: Show authenticated view
+                
+                opt Remember Me Selected
+                    note over Flask, Browser: Sets persistent cookie
+                end
+            end
+        end
+    end
+```
+
 ## Key Components
 
 ### User Model

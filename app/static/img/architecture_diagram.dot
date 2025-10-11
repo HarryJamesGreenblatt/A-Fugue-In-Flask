@@ -1,0 +1,162 @@
+
+digraph "Application Factory Pattern" {
+    // Overall graph settings for better readability with horizontal layout
+    graph [
+        fontname="Arial", 
+        fontsize=16,
+        labelloc="t",
+        rankdir=LR,  // Left to Right orientation
+        ranksep=0.6, 
+        nodesep=0.6,
+        pad=0.3,
+        splines=ortho,
+        compound=true
+    ];
+    
+    // Node styling for better readability
+    node [
+        fontname="Arial", 
+        fontsize=13, 
+        shape=box, 
+        style="rounded,filled", 
+        fillcolor=white,
+        fontcolor=black,
+        margin="0.3,0.1",
+        height=0.6,
+        width=1.2
+    ];
+    
+    // Edge styling
+    edge [
+        fontname="Arial", 
+        fontsize=11,
+        fontcolor="#333333"
+    ];
+
+    // Title
+    label = "Application Factory Pattern with Blueprint Modularity";
+    
+    // Primary flow components
+    app_py [label="app.py
+Entry Point", fillcolor="#FFE8CC", fontcolor="#663300", penwidth=2];
+    app_factory [label="create_app
+Application Factory", fillcolor="#CCE8FF", fontcolor="#003366", penwidth=2];
+    
+    // Left-to-right flow - entry point to app factory
+    app_py -> app_factory [weight=10];
+    
+    // Main application components
+    subgraph cluster_config {
+        label="Configuration";
+        style="rounded,filled";
+        fillcolor="#EBFFEB";
+        fontcolor="#006600";
+        margin=12;
+        
+        config [label="config.py
+Settings", fillcolor=white];
+    }
+    
+    subgraph cluster_extensions {
+        label="Extensions";
+        style="rounded,filled";
+        fillcolor="#EBEEEE";
+        fontcolor="#333333";
+        margin=12;
+        
+        database [label="SQLAlchemy
+ORM", fillcolor=white];
+        auth [label="Flask-Login", fillcolor=white];
+        migrations [label="Flask-Migrate", fillcolor=white];
+        
+        {rank=same; database; auth; migrations;}
+    }
+    
+    subgraph cluster_blueprints {
+        label="Blueprints";
+        style="rounded,filled";
+        fillcolor="#FFEBEB";
+        fontcolor="#660000";
+        margin=12;
+        
+        main_bp [label="Main Blueprint", fillcolor=white];
+        auth_bp [label="Auth Blueprint", fillcolor=white];
+        
+        {rank=same; main_bp; auth_bp;}
+    }
+    
+    subgraph cluster_models {
+        label="Models";
+        style="rounded,filled";
+        fillcolor="#E6FFFF";
+        fontcolor="#003333";
+        margin=12;
+        
+        user_model [label="User Model", fillcolor=white];
+    }
+    
+    subgraph cluster_ui {
+        label="UI Components";
+        style="rounded,filled";
+        fillcolor="#FFFFEB";
+        fontcolor="#333300";
+        margin=12;
+        
+        main_templates [label="Main
+Templates", fillcolor=white];
+        auth_templates [label="Auth
+Templates", fillcolor=white];
+        static [label="Static Files
+CSS/JS/Images", fillcolor=white];
+        
+        {rank=same; main_templates; auth_templates; static;}
+    }
+    
+    subgraph cluster_azure {
+        label="Azure Deployment";
+        style="rounded,filled";
+        fillcolor="#E6F2FF";
+        fontcolor="#000066";
+        margin=12;
+        
+        app_service [label="Azure
+App Service", fillcolor=white];
+        sql_db [label="Azure
+SQL Database", fillcolor=white];
+        key_vault [label="Azure
+Key Vault", fillcolor=white];
+        github [label="GitHub
+Actions CI/CD", fillcolor=white];
+        
+        {rank=same; app_service; sql_db; key_vault; github;}
+    }
+    
+    // Layout constraints to organize the clusters in a nice horizontal flow
+    app_py -> app_factory -> config;
+    config -> database [style=invis];
+    database -> main_bp [style=invis];
+    main_bp -> user_model [style=invis];
+    user_model -> main_templates [style=invis];
+    main_templates -> app_service [style=invis];
+    
+    // Connect app factory to components
+    app_factory -> config [lhead=cluster_config, weight=2];
+    app_factory -> database [lhead=cluster_extensions, weight=2];
+    app_factory -> main_bp [lhead=cluster_blueprints, weight=2];
+    
+    // Connect database to model
+    database -> user_model [weight=2];
+    
+    // Connect blueprints to templates
+    main_bp -> main_templates [weight=2];
+    auth_bp -> auth_templates [weight=2];
+    main_bp -> static [weight=1];
+    
+    // Connect to Azure deployment
+    app_factory -> app_service [style=dotted, lhead=cluster_azure, weight=1];
+    
+    // Connect Azure components
+    github -> app_service [constraint=false];
+    app_service -> sql_db [constraint=false];
+    app_service -> key_vault [constraint=false];
+}

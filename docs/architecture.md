@@ -37,6 +37,77 @@ flowchart TD
     J --> O["Forms - Login, Register"]
 ```
 
+## Component Diagram
+
+The application follows a modular architecture pattern with clear separation of concerns:
+
+```mermaid
+classDiagram
+    class Flask {
+        +create_app()
+    }
+    
+    class Config {
+        +Config
+        +DevelopmentConfig
+        +TestingConfig
+        +ProductionConfig
+        +AzureConfig
+    }
+    
+    class SQLAlchemy {
+        +db
+        +Model
+        +relationship()
+    }
+    
+    class Routes {
+        +main_bp
+        +auth_bp
+    }
+    
+    class Models {
+        +User
+        +relationship()
+    }
+    
+    class Forms {
+        +LoginForm
+        +RegisterForm
+    }
+    
+    class Templates {
+        +base.html
+        +index.html
+        +login.html
+        +register.html
+    }
+    
+    class Azure_Services {
+        +KeyVault
+        +SQL_Database
+        +App_Service
+        +AppInsights
+    }
+    
+    Flask --> Config : uses
+    Flask --> SQLAlchemy : integrates
+    Flask --> Routes : registers
+    Routes --> Models : queries
+    Routes --> Forms : validates
+    Routes --> Templates : renders
+    Models --> SQLAlchemy : extends
+    Config --> Azure_Services : connects to
+    
+    class Utilities {
+        +Security
+        +Validation
+    }
+    
+    Flask --> Utilities : uses
+    Routes --> Utilities : uses
+```
+
 ## Key Components
 
 ### 1. Application Factory (`app/__init__.py`)
